@@ -311,6 +311,7 @@ if page == "🚀 The Experiment":
 elif page == "📚 Theory & Methodology":
     st.markdown('<p class="big-header">📚 The Academic Framework</p>', unsafe_allow_html=True)
 
+
     # =========================================================
     # 1) EMH
     # =========================================================
@@ -389,6 +390,53 @@ elif page == "📚 Theory & Methodology":
     * Outperformance by equal-weighting is not automatically “inefficiency.” It can reflect **systematic factor exposure** (size, rebalancing effects) and different risk.  
     * Gross outperformance is not the same as net outperformance once you include **turnover, fees, and slippage** (not modeled here unless explicitly added).
     """)
+    # Add this to your "📚 Theory & Methodology" page in app.py
+
+    st.markdown("""
+    <div class="theory-box">
+    <h3>✅ Data Quality: Survivorship Bias-Free (WRDS/CRSP)</h3>
+
+    <p>This experiment uses <b>CRSP data via WRDS</b> (Wharton Research Data Services) — 
+    the same data source used in peer-reviewed academic finance journals.</p>
+
+    <p><b>Why this matters:</b></p>
+    <ul>
+        <li><b>Includes delisted companies</b> — bankruptcies, mergers, acquisitions, and failures are all present</li>
+        <li><b>Delisting returns incorporated</b> — when a stock goes to zero or is acquired, that final return is captured</li>
+        <li><b>PERMNO tracking</b> — stocks are tracked by permanent ID, surviving ticker symbol changes</li>
+        <li><b>No "winners only" bias</b> — unlike Yahoo Finance or most free data sources</li>
+    </ul>
+
+    <p><b>Data coverage:</b> US equities from January 2000 through December 2024</p>
+
+    <p>This methodological choice is critical. Studies using survivorship-biased data can overstate 
+    returns by 1-2% annually (<a href="https://doi.org/10.1111/j.1540-6261.1995.tb05169.x" target="_blank">Elton, Gruber & Blake, 1996</a>).</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # At the top of your Theory page, after get_data():
+    @st.cache_data
+    def get_data_stats():
+        df = pd.read_csv('US_SPYdata_2000_2024.csv')
+        df['DLRET'] = pd.to_numeric(df['DLRET'], errors='coerce')
+        n_delistings = df['DLRET'].notna().sum()
+        n_delisted_tickers = df[df['DLRET'].notna()]['TICKER'].nunique()
+        n_total_tickers = df['TICKER'].nunique()
+        return n_delistings, n_delisted_tickers, n_total_tickers
+
+    n_delistings, n_delisted_tickers, n_total_tickers = get_data_stats()
+
+    # Then in your markdown:
+    st.markdown(f"""
+    <div class="theory-box">
+    <h3>✅ Data Integrity: Survivorship Bias-Free</h3>
+    <p><b>Dataset Statistics:</b></p>
+    <ul>
+        <li><b>{n_delistings:,} delisting events</b> captured</li>
+        <li><b>{n_delisted_tickers:,} delisted tickers</b> out of <b>{n_total_tickers:,} total</b></li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Optional: add a short “limitations” box (keeps you honest and looks academic)
     st.markdown("""
