@@ -6,7 +6,6 @@ import datetime
 import engine as eng
 import streamlit.components.v1 as components
 
-
 def _tail_label(pct: float) -> str:
     """Human-readable location of a value inside a distribution."""
     if pct >= 95: return "extreme right tail"
