@@ -35,7 +35,7 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
         <h3>Interpreting the Simulation Results</h3>
         <p>Not enough valid simulation output to generate a reliable distribution summary.</p>
         </div>
-        """
+        """, 200
 
     def summarize(x):
         q10, q25, q50, q75, q90 = np.percentile(x, [10, 25, 50, 75, 90])
@@ -54,16 +54,16 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
     ew = summarize(res_ew)
     cw = summarize(res_cw)
 
-    # Paired comparison: how often EW > CW (works because your engine returns both per-sim)
+    # Paired comparison
     n_pair = min(len(res_ew), len(res_cw))
     pair_win = float(np.mean(res_ew[:n_pair] > res_cw[:n_pair]) * 100.0)
 
-    # Benchmark positioning + win rates
+    # Benchmark positioning
     bench_lines = []
     def bench_block(name, b):
         if b is None or not np.isfinite(b):
             return None
-        ew_pct = float(np.mean(res_ew <= b) * 100.0)  # percentile of benchmark in EW dist
+        ew_pct = float(np.mean(res_ew <= b) * 100.0)
         cw_pct = float(np.mean(res_cw <= b) * 100.0)
         ew_win = float(np.mean(res_ew >= b) * 100.0)
         cw_win = float(np.mean(res_cw >= b) * 100.0)
@@ -74,31 +74,58 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
         if blk:
             bench_lines.append(blk)
 
-    # Build dynamic narrative
     header = f" ({regime_label})" if regime_label else ""
 
+    # FIXED CSS - Forces light theme regardless of Streamlit's dark mode
     css = """
     <style>
-    .theory-box {
-        background-color: #f8f9fa;
-        color: #111111;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        line-height: 1.6;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    * {
+        box-sizing: border-box;
     }
-    .theory-box h3 { color: #0b3c5d; margin-top: 0; }
-    .theory-box ul { margin: 0.5rem 0 0 1.2rem; }
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background-color: #f8f9fa !important;
+    }
+    .theory-box {
+        background-color: #f8f9fa !important;
+        color: #111111 !important;
+        padding: 20px !important;
+        border-radius: 10px !important;
+        margin-bottom: 15px !important;
+        line-height: 1.7 !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08) !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+    }
+    .theory-box h3 { 
+        color: #0b3c5d !important; 
+        margin-top: 0 !important; 
+        margin-bottom: 12px !important;
+    }
+    .theory-box p {
+        color: #111111 !important;
+        margin-bottom: 10px !important;
+    }
+    .theory-box ul { 
+        margin: 0.5rem 0 1rem 1.2rem !important; 
+        color: #111111 !important;
+    }
+    .theory-box li {
+        color: #111111 !important;
+        margin-bottom: 8px !important;
+    }
+    .theory-box b, .theory-box strong {
+        color: #0b3c5d !important;
+    }
     </style>
     """
 
-    html = css + f"""
+    # Build content
+    html_content = f"""
     <div class="theory-box">
       <h3>Interpreting the Simulation Results{header}</h3>
 
-      <p><b>What this chart is:</b> Each histogram is the distribution of Sharpe ratios from repeated portfolio simulations over the selected period.
+      <p><b>What this chart shows:</b> Each histogram is the distribution of Sharpe ratios from repeated portfolio simulations over the selected period.
       A wide distribution means outcomes are highly sensitive to which stocks were randomly drawn (dispersion), not just the weighting scheme.</p>
 
       <p><b>Distribution summary (from your actual output):</b></p>
@@ -111,52 +138,50 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
             10–90% range = [{cw["q10"]:.2f}, {cw["q90"]:.2f}]</li>
       </ul>
 
-      <p><b>Equal-weight vs cap-weight (in this run):</b> the equal-weight portfolio beats the cap-weight proxy in
-      <b>{pair_win:.0f}%</b> of paired simulations. This is not “skill” — it reflects systematic differences in exposure (often size + rebalancing effects).</p>
+      <p><b>Equal-weight vs cap-weight (in this run):</b> The equal-weight portfolio beats the cap-weight proxy in
+      <b>{pair_win:.0f}%</b> of paired simulations. This is not "skill" — it reflects systematic differences in exposure (often size + rebalancing effects).</p>
     </div>
     """
-    
 
     if bench_lines:
-        html += """
-        <p><b>Benchmark positioning (relative to the simulated distributions):</b></p>
-        <ul>
+        html_content += """
+        <div class="theory-box">
+          <h3>Benchmark Positioning</h3>
+          <p><b>How do the benchmarks compare to our random portfolios?</b></p>
+          <ul>
         """
         for (name, b, ew_pct, cw_pct, ew_win, cw_win) in bench_lines:
-            html += f"""
+            html_content += f"""
             <li><b>{name} Sharpe = {b:.2f}</b>:
                 sits in the <b>{_tail_label(ew_pct)}</b> of the Dartboard distribution (≈ {ew_pct:.0f}th percentile; <b>{ew_win:.0f}%</b> of dartboards beat it),
                 and the <b>{_tail_label(cw_pct)}</b> of the Index Proxy distribution (≈ {cw_pct:.0f}th percentile; <b>{cw_win:.0f}%</b> beat it).</li>
+            """
+        html_content += """
+          </ul>
+          <p><b>What this means:</b> If the benchmark lines sit in the right tail, it means matching that benchmark Sharpe is difficult. 
+          If they sit near the middle, many random draws are comparable on a risk-adjusted basis.</p>
+        </div>
         """
-        html += "</ul>"
 
-    html += """
-      <p><b>What this simulation actually demonstrates:</b> Over the chosen history window, “randomly diversified” portfolios produce a broad spread of risk-adjusted outcomes.
-      If the benchmark lines sit in the right tail, it means matching that benchmark Sharpe is difficult; if they sit near the middle, it means many random draws are comparable on a risk-adjusted basis.</p>
-    </div>
-    """
+    # Calculate dynamic height based on content
+    base_height = 420
+    bench_height = 280 if bench_lines else 0
+    total_height = base_height + bench_height
 
-    return f"""
+    full_html = f"""
     <!doctype html>
     <html>
     <head>
     <meta charset="utf-8">
-    <style>
-    html, body {{
-    margin: 0;
-    padding: 0;
-    }}
-    </style>
     </head>
     <body>
-    {html}
+    {css}
+    {html_content}
     </body>
     </html>
     """
 
-
-
-
+    return full_html, total_height
 
 st.set_page_config(page_title="Quant Dartboard Lab", page_icon="🎯", layout="wide")
 
@@ -278,16 +303,19 @@ if page == "🚀 The Experiment":
         ax.set_xlabel("Sharpe Ratio (Risk-Adjusted Return)")
         st.pyplot(fig)
         
+        # Get HTML and dynamic height
+        html_output, component_height = describe_simulation_distribution(
+            res_ew,
+            res_cw,
+            spy_sh=spy_sh,
+            iwm_sh=iwm_sh,
+            regime_label=regime
+        )
+
         components.html(
-            describe_simulation_distribution(
-                res_ew,
-                res_cw,
-                spy_sh=spy_sh,
-                iwm_sh=iwm_sh,
-                regime_label=regime
-            ),
-            height=520,       # give it room
-            scrolling=True    # critical: don't silently clip
+            html_output,
+            height=component_height,
+            scrolling=False  # Changed to False - no more scrolling needed
         )
 
 
