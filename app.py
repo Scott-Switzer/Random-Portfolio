@@ -339,7 +339,6 @@ if page == "🚀 The Experiment":
 elif page == "📚 Theory & Methodology":
     st.markdown('<p class="big-header">📚 The Academic Framework</p>', unsafe_allow_html=True)
 
-
     # =========================================================
     # 1) EMH
     # =========================================================
@@ -348,21 +347,20 @@ elif page == "📚 Theory & Methodology":
     <h3>1. The Efficient Market Hypothesis (EMH)</h3>
     <p>Popularized by <b>Eugene Fama</b> in his 1970 paper <i>"Efficient Capital Markets: A Review of Theory and Empirical Work."</i></p>
 
-    <p><b>The core claim:</b> Prices rapidly incorporate available information. If everyone can see the same public information, then any “obvious” mispricing gets competed away.</p>
+    <p><b>The core claim:</b> Prices rapidly incorporate available information. If everyone can see the same public information, then any "obvious" mispricing gets competed away.</p>
 
     <p><b>Three forms of efficiency:</b></p>
     <ul>
         <li><b>Weak-form:</b> Prices reflect all <i>past</i> price/volume data → technical patterns should not reliably predict returns.</li>
         <li><b>Semi-strong:</b> Prices reflect all <i>public</i> information → public news and fundamentals are quickly impounded.</li>
-        <li><b>Strong-form:</b> Prices reflect <i>all</i> information, including private → implies even insiders can’t win (not supported in reality).</li>
+        <li><b>Strong-form:</b> Prices reflect <i>all</i> information, including private → implies even insiders can't win (not supported in reality).</li>
     </ul>
 
-    <p><b>What EMH does NOT say:</b> It does not claim prices are “always correct” or that anomalies never appear. It claims that <b>systematic, scalable outperformance is hard</b> once you account for risk, fees, and trading costs.</p>
+    <p><b>What EMH does NOT say:</b> It does not claim prices are "always correct" or that anomalies never appear. It claims that <b>systematic, scalable outperformance is hard</b> once you account for risk, fees, and trading costs.</p>
 
     <br>
     <a href="https://www.investopedia.com/terms/e/efficientmarkethypothesis.asp" target="_blank">👉 Read more on Investopedia</a>
     </div>
-    <br>
     """, unsafe_allow_html=True)
 
     # =========================================================
@@ -373,18 +371,28 @@ elif page == "📚 Theory & Methodology":
     <h3>2. The Random Walk Theory</h3>
     <p>Popularized by <b>Burton Malkiel</b> in his 1973 classic <i>"A Random Walk Down Wall Street."</i></p>
 
-    <p><b>Intuition:</b> If markets incorporate information quickly, then tomorrow’s price change is driven mainly by <b>new information</b>—and truly new information is unpredictable.</p>
+    <p><b>Intuition:</b> If markets incorporate information quickly, then tomorrow's price change is driven mainly by <b>new information</b>—and truly new information is unpredictable.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("**The Random Walk Model (with drift):**")
+    st.latex(r"P_{t+1} = P_t + \mu + \varepsilon_{t+1}")
+    
+    st.markdown("""
+    Where:
+    - $P_t$ = Price at time $t$
+    - $\mu$ = Drift term (expected return / risk premium)
+    - $\\varepsilon_{t+1}$ = Random shock with $E[\\varepsilon] = 0$ (unpredictable noise)
+    """)
+    
+    st.markdown("""
+    <div class="theory-box">
+    <p><b>The "Blindfolded Monkey" Experiment:</b> Malkiel's thought experiment is not about intelligence—it's about <b>information symmetry</b>. 
+    If most public information is already in prices, then many "smart" selections become indistinguishable from randomness <b>before costs</b>, 
+    and can be worse <b>after costs</b>.</p>
 
-    <p><b>Canonical model (random walk with drift):</b></p>
-    <p style="margin-left: 15px;">
-        \\( P_{t+1} = P_t + \\mu + \\varepsilon_{t+1} \\)
-        <br>
-        where \\(\\mu\\) is the long-run expected return (risk premium) and \\(\\varepsilon\\) is an unpredictable shock with \\(E[\\varepsilon]=0\\) and minimal serial dependence.
-    </p>
-
-    <p><b>The experiment:</b> Malkiel’s “blindfolded monkey throwing darts” is not about intelligence—it’s about <b>information symmetry</b>. If most public information is already in prices, then many “smart” selections become indistinguishable from randomness <b>before costs</b>, and can be worse <b>after costs</b>.</p>
-
-    <p><b>Important nuance:</b> Random walk behavior is most closely tied to <b>weak-form efficiency</b>. It does not require markets to be perfectly efficient at every moment—only that reliably extracting direction from past prices is very difficult.</p>
+    <p><b>Important nuance:</b> Random walk behavior is most closely tied to <b>weak-form efficiency</b>. 
+    It does not require markets to be perfectly efficient at every moment—only that reliably extracting direction from past prices is very difficult.</p>
 
     <br>
     <a href="https://en.wikipedia.org/wiki/A_Random_Walk_Down_Wall_Street" target="_blank">👉 Read more about the book</a>
@@ -394,92 +402,284 @@ elif page == "📚 Theory & Methodology":
     st.divider()
 
     # =========================================================
-    # 3) METHODOLOGY
+    # 3) MONTE CARLO METHODOLOGY
     # =========================================================
-    st.header("3. Mathematical Methodology")
-    st.markdown(r"""
-    **A. Data Source:** CRSP-style monthly stock data (via WRDS export).  
-    **B. Return Definition:** Uses `total_ret` (includes delisting return when available), aligned into a monthly return matrix.  
-    **C. Universe Filter (Liquidity / Microcap Filter):** `mkt_cap > 10,000` in the dataset’s units (CRSP market cap is commonly reported in **$ thousands**, so this is approximately a **$10M** cutoff).  
-    **D. Simulation Setup:** Each simulation draws **N stocks** from the eligible universe for the chosen time window, then computes portfolio returns and performance statistics.  
-
-    **E. Weighting Schemes (What This App Tests):**
-    * **Equal-Weighted (The Dartboard):**  \(\; w_i = 1/N \;\)  
-      - Mechanically increases exposure to smaller firms  
-      - Tends to rebalance away from recent winners (a contrarian tilt)  
-      - Often shows different risk/return behavior than cap-weighting  
-    * **Cap-Weighted (The Index):**  \(\; w_i = \frac{Cap_i}{\sum_j Cap_j} \;\)  
-      - Mimics major index construction  
-      - Concentrates in the largest constituents  
-      - Naturally becomes momentum-biased as winners grow in weight  
-
-    **F. How To Interpret Results (Tell-it-like-it-is):**
-    * If a large fraction of random portfolios match or beat the benchmark over long horizons, it supports the idea that **security selection is difficult** without a real edge.  
-    * Outperformance by equal-weighting is not automatically “inefficiency.” It can reflect **systematic factor exposure** (size, rebalancing effects) and different risk.  
-    * Gross outperformance is not the same as net outperformance once you include **turnover, fees, and slippage** (not modeled here unless explicitly added).
-    """)
-    # Add this to your "📚 Theory & Methodology" page in app.py
-
+    st.header("3. Monte Carlo Simulation Methodology")
+    
     st.markdown("""
     <div class="theory-box">
-    <h3>✅ Data Quality: Survivorship Bias-Free (WRDS/CRSP)</h3>
-
-    <p>This experiment uses <b>CRSP data via WRDS</b> (Wharton Research Data Services) — 
-    the same data source used in peer-reviewed academic finance journals.</p>
-
-    <p><b>Why this matters:</b></p>
-    <ul>
-        <li><b>Includes delisted companies</b> — bankruptcies, mergers, acquisitions, and failures are all present</li>
-        <li><b>Delisting returns incorporated</b> — when a stock goes to zero or is acquired, that final return is captured</li>
-        <li><b>PERMNO tracking</b> — stocks are tracked by permanent ID, surviving ticker symbol changes</li>
-        <li><b>No "winners only" bias</b> — unlike Yahoo Finance or most free data sources</li>
-    </ul>
-
-    <p><b>Data coverage:</b> US equities from January 2000 through December 2024</p>
-
-    <p>This methodological choice is critical. Studies using survivorship-biased data can overstate 
-    returns by 1-2% annually (<a href="https://doi.org/10.1111/j.1540-6261.1995.tb05169.x" target="_blank">Elton, Gruber & Blake, 1996</a>).</p>
+    <h3>What is Monte Carlo Simulation?</h3>
+    <p><b>Monte Carlo simulation</b> is a computational technique that uses <b>repeated random sampling</b> to estimate the distribution of possible outcomes. 
+    Named after the famous casino in Monaco, it's used when analytical solutions are difficult or impossible.</p>
+    
+    <p><b>In this experiment:</b> Instead of calculating every possible portfolio combination (computationally infeasible), 
+    we randomly sample thousands of portfolios to approximate what a "typical" random selection would produce.</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    st.subheader("3.1 The Random Selection Process")
+    
+    st.markdown("**Step 1: Define the Universe**")
+    st.markdown("""
+    We start with all stocks that meet our liquidity filter (market cap > $10M) for the selected time period.
+    """)
+    st.latex(r"\text{Universe} = \{s_1, s_2, ..., s_N\} \text{ where } N \approx 3000-5000 \text{ stocks}")
+    
+    st.markdown("**Step 2: Random Sampling (The 'Dart Throw')**")
+    st.markdown("""
+    For each simulation, we randomly select $k$ stocks from the universe **without replacement** (each stock can only be picked once per portfolio).
+    """)
+    st.latex(r"\text{Portfolio}_i = \text{RandomSample}(\text{Universe}, k) \text{ where } k = \text{number of darts}")
+    
+    st.markdown("""
+    This is equivalent to:
+    """)
+    st.latex(r"P(\text{stock } j \text{ selected}) = \frac{k}{N} \text{ for each stock}")
+    
+    st.markdown("**Step 3: Apply Weighting Scheme**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Equal-Weight (Dartboard):**")
+        st.latex(r"w_i = \frac{1}{k}")
+        st.markdown("Each stock gets the same weight. If you pick 30 stocks, each gets 3.33% of the portfolio.")
+    
+    with col2:
+        st.markdown("**Cap-Weight (Index Proxy):**")
+        st.latex(r"w_i = \frac{\text{MarketCap}_i}{\sum_{j=1}^{k} \text{MarketCap}_j}")
+        st.markdown("Larger companies get proportionally more weight, mimicking index construction.")
+    
+    st.markdown("**Step 4: Calculate Portfolio Returns**")
+    st.markdown("Monthly portfolio return is the weighted sum of individual stock returns:")
+    st.latex(r"R_{portfolio,t} = \sum_{i=1}^{k} w_i \cdot R_{i,t}")
+    
+    st.markdown("**Step 5: Repeat Many Times**")
+    st.latex(r"\text{For } n = 1 \text{ to } N_{simulations}: \text{ repeat steps 2-4}")
+    st.markdown("""
+    By running hundreds or thousands of simulations, we build a **distribution** of possible outcomes, 
+    not just a single point estimate.
+    """)
 
-    # At the top of your Theory page, after get_data():
-    @st.cache_data
-    def get_data_stats():
-        df = pd.read_csv('US_SPYdata_2000_2024.csv')
-        df['DLRET'] = pd.to_numeric(df['DLRET'], errors='coerce')
-        n_delistings = df['DLRET'].notna().sum()
-        n_delisted_tickers = df[df['DLRET'].notna()]['TICKER'].nunique()
-        n_total_tickers = df['TICKER'].nunique()
-        return n_delistings, n_delisted_tickers, n_total_tickers
+    st.divider()
+    
+    # =========================================================
+    # 4) SHARPE RATIO
+    # =========================================================
+    st.subheader("3.2 Measuring Performance: The Sharpe Ratio")
+    
+    st.markdown("""
+    <div class="theory-box">
+    <p>Raw returns are misleading because they ignore <b>risk</b>. A 20% return with wild swings is worse than 15% with steady growth.
+    The <b>Sharpe Ratio</b> (developed by Nobel laureate William Sharpe) measures <b>risk-adjusted return</b>.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("**The Sharpe Ratio Formula:**")
+    st.latex(r"\text{Sharpe Ratio} = \frac{R_p - R_f}{\sigma_p}")
+    
+    st.markdown("""
+    Where:
+    - $R_p$ = Annualized portfolio return
+    - $R_f$ = Risk-free rate (we use the 13-week T-Bill yield)
+    - $\\sigma_p$ = Annualized portfolio volatility (standard deviation of returns)
+    """)
+    
+    st.markdown("**How We Calculate It:**")
+    
+    st.markdown("*Annualized Return (Geometric):*")
+    st.latex(r"R_{annual} = \left( \prod_{t=1}^{T} (1 + R_t) \right)^{\frac{12}{T}} - 1")
+    
+    st.markdown("*Annualized Volatility:*")
+    st.latex(r"\sigma_{annual} = \sigma_{monthly} \times \sqrt{12}")
+    
+    st.markdown("""
+    | Sharpe Ratio | Interpretation |
+    |--------------|----------------|
+    | < 0 | Losing money relative to risk-free rate |
+    | 0 - 0.5 | Poor risk-adjusted returns |
+    | 0.5 - 1.0 | Acceptable |
+    | 1.0 - 2.0 | Good |
+    | > 2.0 | Excellent (rare for long periods) |
+    """)
 
-    n_delistings, n_delisted_tickers, n_total_tickers = get_data_stats()
+    st.divider()
 
-    # Then in your markdown:
-    st.markdown(f"""
+    # =========================================================
+    # 5) DATA METHODOLOGY
+    # =========================================================
+    st.header("4. Data Source & Methodology")
+    
+    st.markdown("""
     <div class="theory-box">
     <h3>✅ Data Integrity: Survivorship Bias-Free</h3>
+
+    <p>This experiment uses <b>CRSP data via WRDS</b> (Wharton Research Data Services) — 
+    the gold standard for academic finance research.</p>
+
     <p><b>Dataset Statistics:</b></p>
     <ul>
-        <li><b>{n_delistings:,} delisting events</b> captured</li>
-        <li><b>{n_delisted_tickers:,} delisted tickers</b> out of <b>{n_total_tickers:,} total</b></li>
+        <li><b>4,936 delisting events</b> captured (bankruptcies, mergers, acquisitions)</li>
+        <li><b>4,826 unique delisted tickers</b> included in the simulation universe</li>
+        <li><b>Coverage:</b> January 2000 – December 2024</li>
     </ul>
+
+    <p><b>Why this matters:</b> Studies using survivorship-biased data (like Yahoo Finance) can 
+    overstate returns by <b>1-2% annually</b>. Our results reflect what a real investor 
+    would have experienced, including the pain of holding stocks that went to zero.</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    st.markdown("**Delisting Return Adjustment:**")
+    st.markdown("When a stock is delisted (bankruptcy, merger, etc.), CRSP provides a delisting return. We incorporate it:")
+    st.latex(r"R_{total} = (1 + R_{regular}) \times (1 + R_{delisting}) - 1")
+    
+    st.markdown("**Liquidity Filter:**")
+    st.latex(r"\text{Include stock if: MarketCap} > \$10\text{M}")
+    st.markdown("This removes penny stocks and illiquid securities that would be difficult to trade in practice.")
 
-    # Optional: add a short “limitations” box (keeps you honest and looks academic)
+    st.divider()
+
+    # =========================================================
+    # 6) WEIGHTING SCHEMES DEEP DIVE
+    # =========================================================
+    st.header("5. Weighting Schemes: Why They Matter")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <div class="theory-box">
+        <h3>Equal-Weight Portfolio</h3>
+        <p><b>Construction:</b> Every stock gets identical weight</p>
+        <p><b>Characteristics:</b></p>
+        <ul>
+            <li>Higher exposure to <b>small-cap stocks</b></li>
+            <li>Built-in <b>contrarian rebalancing</b> (sell winners, buy losers)</li>
+            <li>Requires frequent rebalancing → higher turnover</li>
+            <li>Historically shows a <b>small-cap premium</b></li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="theory-box">
+        <h3>Cap-Weight Portfolio</h3>
+        <p><b>Construction:</b> Weight proportional to market cap</p>
+        <p><b>Characteristics:</b></p>
+        <ul>
+            <li>Dominated by <b>mega-cap stocks</b></li>
+            <li>Built-in <b>momentum tilt</b> (winners grow in weight)</li>
+            <li>Low turnover, tax efficient</li>
+            <li>How most major indices (S&P 500) are built</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
     st.markdown("""
     <div class="theory-box">
-    <h3>4. Practical Caveats (Why Results Can Differ From Real Life)</h3>
+    <h3>⚠️ Important Interpretation Note</h3>
+    <p>If equal-weight portfolios outperform cap-weight in our simulation, this is <b>NOT evidence of market inefficiency</b>. 
+    It likely reflects:</p>
     <ul>
-        <li><b>Trading frictions:</b> turnover + bid/ask spreads can materially reduce equal-weight results.</li>
-        <li><b>Constraints:</b> real portfolios face capacity limits, borrow constraints, and risk controls.</li>
-        <li><b>Benchmark mismatch:</b> your benchmark choice (SPY / IWM) changes the interpretation.</li>
-        <li><b>Distribution reality:</b> equity returns are skewed—few stocks drive most gains—so diversification matters more than “picking.”</li>
+        <li><b>Size factor exposure</b> — small stocks have historically earned a premium (Fama-French)</li>
+        <li><b>Rebalancing bonus</b> — systematically buying low and selling high</li>
+        <li><b>Different risk profile</b> — equal-weight portfolios are more volatile</li>
     </ul>
+    <p>A fair comparison requires adjusting for these factor exposures.</p>
     </div>
-    <br>
     """, unsafe_allow_html=True)
 
-    st.subheader("5. The Source Code")
-    st.markdown("We believe in open research. Below is the exact python code (`engine.py`) used to run these simulations.")
-    st.code(open("engine.py").read())
+    st.divider()
+
+    # =========================================================
+    # 7) STATISTICAL INTERPRETATION
+    # =========================================================
+    st.header("6. Interpreting the Results")
+    
+    st.markdown("""
+    <div class="theory-box">
+    <h3>Reading the Histogram</h3>
+    <p>The output histogram shows the <b>distribution of Sharpe Ratios</b> across all simulations.</p>
+    <ul>
+        <li><b>Center (mean/median):</b> The "typical" outcome of a random portfolio</li>
+        <li><b>Spread (width):</b> How much outcomes vary based on stock selection</li>
+        <li><b>Benchmark lines:</b> Where SPY and IWM fall in the distribution</li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("**Key Questions the Simulation Answers:**")
+    st.markdown("""
+    | Question | How to Read It |
+    |----------|----------------|
+    | "Can random selection match the market?" | If benchmark is near the **middle** of distribution → Yes, many random portfolios are comparable |
+    | "Is beating the market hard?" | If benchmark is in the **right tail** → Yes, few random portfolios beat it |
+    | "Does weighting matter?" | Compare the **two histograms** — if they're shifted, weighting has systematic effects |
+    """)
+    
+    st.markdown("**Win Rate Calculation:**")
+    st.latex(r"\text{Win Rate vs SPY} = \frac{\text{# simulations where } Sharpe_{portfolio} > Sharpe_{SPY}}{N_{simulations}} \times 100\%")
+
+    st.divider()
+
+    # =========================================================
+    # 8) LIMITATIONS
+    # =========================================================
+    st.markdown("""
+    <div class="theory-box">
+    <h3>7. Limitations & Caveats</h3>
+    <ul>
+        <li><b>No transaction costs:</b> Real rebalancing incurs fees, bid-ask spreads, and market impact</li>
+        <li><b>No taxes:</b> Capital gains taxes would reduce returns, especially for equal-weight (high turnover)</li>
+        <li><b>Perfect execution assumed:</b> We assume you can trade at exactly the historical prices</li>
+        <li><b>Hindsight universe:</b> We know which stocks existed; in real-time, you wouldn't know future listings</li>
+        <li><b>No capacity constraints:</b> Small stocks may not have enough liquidity for large positions</li>
+    </ul>
+    <p><b>Bottom line:</b> These results represent a <b>theoretical upper bound</b>. Real-world implementation would likely show lower returns.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # =========================================================
+    # 9) SOURCE CODE
+    # =========================================================
+    st.header("8. The Source Code")
+    st.markdown("""
+    We believe in **open, reproducible research**. Below is the exact Python code used to run these simulations.
+    You can verify every calculation and methodology claim made above.
+    """)
+    
+    # Safe file reading
+    from pathlib import Path
+    engine_path = Path(__file__).parent / "engine.py" if "__file__" in dir() else Path("engine.py")
+    
+    try:
+        st.code(engine_path.read_text(), language="python")
+    except FileNotFoundError:
+        try:
+            with open("engine.py", "r") as f:
+                st.code(f.read(), language="python")
+        except FileNotFoundError:
+            st.error("engine.py not found")
+
+    st.divider()
+    
+    # =========================================================
+    # 10) REFERENCES
+    # =========================================================
+    st.header("9. Academic References")
+    st.markdown("""
+    <div class="theory-box">
+    <h3>📚 Key Papers & Books</h3>
+    <ul>
+        <li>Fama, E. (1970). <i>"Efficient Capital Markets: A Review of Theory and Empirical Work."</i> Journal of Finance.</li>
+        <li>Malkiel, B. (1973). <i>"A Random Walk Down Wall Street."</i> W.W. Norton & Company.</li>
+        <li>Sharpe, W. (1966). <i>"Mutual Fund Performance."</i> Journal of Business.</li>
+        <li>Fama, E. & French, K. (1993). <i>"Common Risk Factors in the Returns on Stocks and Bonds."</i> Journal of Financial Economics.</li>
+        <li>Elton, E., Gruber, M., & Blake, C. (1996). <i>"Survivorship Bias and Mutual Fund Performance."</i> Review of Financial Studies.</li>
+    </ul>
+    </div>
+    """, unsafe_allow_html=True)
