@@ -7,8 +7,6 @@ import engine as eng
 import streamlit.components.v1 as components
 import config as cfg
 
-n_stocks = st.sidebar.slider("Darts per Portfolio", cfg.MIN_STOCKS, cfg.MAX_STOCKS, cfg.DEFAULT_N_STOCKS)
-
 
 # --- SESSION STATE ---
 if 'results' not in st.session_state:
@@ -20,8 +18,7 @@ if 'results' not in st.session_state:
 def get_cached_benchmark(ticker, start, end, rf):
     return eng.get_benchmark_stats(ticker, start, end, rf)
 
-spy_sh, spy_r = get_cached_benchmark("SPY", s, e, rf)
-iwm_sh, iwm_r = get_cached_benchmark("IWM", s, e, rf)
+
 
 def _tail_label(pct: float) -> str:
     """Human-readable location of a value inside a distribution."""
@@ -313,6 +310,10 @@ if page == "🚀 The Experiment":
         s = datetime.datetime.combine(s, datetime.time())
         e = datetime.datetime.combine(e, datetime.time())
     
+
+    n_stocks = st.sidebar.slider("Darts per Portfolio", cfg.MIN_STOCKS, cfg.MAX_STOCKS, cfg.DEFAULT_N_STOCKS)
+    n_sims = st.sidebar.slider("Simulations", cfg.MIN_SIMS, cfg.MAX_SIMS, cfg.DEFAULT_N_SIMS)
+
     # --- EXECUTION ---
     current_params = (regime, n_stocks, n_sims)
 
@@ -349,8 +350,10 @@ if page == "🚀 The Experiment":
         )
         status_text.text("✅ Complete!")
 
+        # Calculate win rate BEFORE using it
+        win_vs_spy = np.mean(res_ew > spy_sh) * 100
+
         # 3. Metrics
-        # Replace the metrics section with expanded version:
         st.divider()
 
         # Row 1: Main Metrics
