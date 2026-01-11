@@ -1,10 +1,27 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import datetime
 import engine as eng
 import streamlit.components.v1 as components
+import config as cfg
+
+n_stocks = st.sidebar.slider("Darts per Portfolio", cfg.MIN_STOCKS, cfg.MAX_STOCKS, cfg.DEFAULT_N_STOCKS)
+
+
+# --- SESSION STATE ---
+if 'results' not in st.session_state:
+    st.session_state.results = None
+    st.session_state.last_params = None
+
+# --- CACHED BENCHMARK FUNCTION ---
+@st.cache_data(ttl=3600, show_spinner=False)  # Cache for 1 hour
+def get_cached_benchmark(ticker, start, end, rf):
+    return eng.get_benchmark_stats(ticker, start, end, rf)
+
+spy_sh, spy_r = get_cached_benchmark("SPY", s, e, rf)
+iwm_sh, iwm_r = get_cached_benchmark("IWM", s, e, rf)
 
 def _tail_label(pct: float) -> str:
     """Human-readable location of a value inside a distribution."""
@@ -183,7 +200,24 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
 
     return full_html, total_height
 
-st.set_page_config(page_title="Quant Dartboard Lab", page_icon="🎯", layout="wide")
+
+st.set_page_config(
+    page_title="Dartboard Experiment | EMH Test",
+    page_icon="🎯",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/Scott-Switzer/Random-Portfolio/issues',
+        'Report a bug': 'https://github.com/Scott-Switzer/Random-Portfolio/issues',
+        'About': """
+        ## 🎯 The Dartboard Experiment
+        
+        Testing Burton Malkiel's claim that a blindfolded monkey could match expert stock pickers.
+        
+        Built by Scott Switzer using CRSP data from WRDS.
+        """
+    }
+)
 
 st.markdown("""
 <style>
@@ -249,20 +283,39 @@ if page == "🚀 The Experiment":
 
     # --- CONTROLS ---
     st.sidebar.header("🧪 Experiment Settings")
-    regime = st.sidebar.selectbox("Market Era", ["Full History (2000-2024)", "Dotcom Bubble", "2008 GFC", "Post-Covid"])
-    
-    d_map = {
-        "Full History (2000-2024)": (min_date, max_date),
-        "Dotcom Bubble": (datetime.datetime(2000,1,1), datetime.datetime(2002,12,31)),
-        "2008 GFC": (datetime.datetime(2007,10,1), datetime.datetime(2009,3,31)),
-        "Post-Covid": (datetime.datetime(2020,3,1), max_date)
-    }
-    s, e = d_map[regime]
-    
-    n_stocks = st.sidebar.slider("Darts per Portfolio", 10, 100, 30)
-    n_sims = st.sidebar.slider("Simulations (The Sample Size)", 100, 2000, 500)
+
+    date_mode = st.sidebar.radio("Time Period", ["Preset Eras", "Custom Range"])
+
+    if date_mode == "Preset Eras":
+        regime = st.sidebar.selectbox("Market Era", [
+            "Full History (2000-2024)", 
+            "Dotcom Bubble (2000-2002)", 
+            "2008 GFC (2007-2009)", 
+            "Bull Market (2010-2019)",
+            "COVID Crash & Recovery (2020-2021)",
+            "Post-Covid (2020-2024)"
+        ])
+        
+        d_map = {
+            "Full History (2000-2024)": (min_date, max_date),
+            "Dotcom Bubble (2000-2002)": (datetime.datetime(2000,1,1), datetime.datetime(2002,12,31)),
+            "2008 GFC (2007-2009)": (datetime.datetime(2007,10,1), datetime.datetime(2009,3,31)),
+            "Bull Market (2010-2019)": (datetime.datetime(2010,1,1), datetime.datetime(2019,12,31)),
+            "COVID Crash & Recovery (2020-2021)": (datetime.datetime(2020,1,1), datetime.datetime(2021,12,31)),
+            "Post-Covid (2020-2024)": (datetime.datetime(2020,3,1), max_date)
+        }
+        s, e = d_map[regime]
+    else:
+        regime = "Custom Range"
+        col1, col2 = st.sidebar.columns(2)
+        s = col1.date_input("Start", min_date, min_value=min_date, max_value=max_date)
+        e = col2.date_input("End", max_date, min_value=min_date, max_value=max_date)
+        s = datetime.datetime.combine(s, datetime.time())
+        e = datetime.datetime.combine(e, datetime.time())
     
     # --- EXECUTION ---
+    current_params = (regime, n_stocks, n_sims)
+
     if st.button("▶️ Run the Experiment", type="primary"):
         sub_ret = ret_matrix.loc[str(s):str(e)]
         sub_cap = cap_matrix.loc[str(s):str(e)]
@@ -277,31 +330,195 @@ if page == "🚀 The Experiment":
             
         st.caption(f"Risk-Free Rate: {rf:.2%} (Avg 13-Wk T-Bill)")
         
-        # 2. Simulation
+        # 2. Run Simulation with progress bar
+        import time
+
+        start_time = time.time()
         pb = st.progress(0)
-        # Note: We now unpack 3 values (Added sample_ports)
-        res_ew, res_cw, sample_ports = eng.run_monte_carlo(sub_ret, sub_cap, n_sims, n_stocks, rf, pb.progress)
-        
+        status_text = st.empty()
+
+        def progress_with_eta(pct):
+            pb.progress(pct)
+            if pct > 0.1:
+                elapsed = time.time() - start_time
+                eta = (elapsed / pct) * (1 - pct)
+                status_text.text(f"Running... {pct*100:.0f}% complete | ETA: {eta:.0f}s remaining")
+
+        res_ew, res_cw, sample_ports = eng.run_monte_carlo(
+            sub_ret, sub_cap, n_sims, n_stocks, rf, progress_with_eta
+        )
+        status_text.text("✅ Complete!")
+
         # 3. Metrics
+        # Replace the metrics section with expanded version:
         st.divider()
-        win_vs_spy = np.mean(res_ew > spy_sh) * 100
-        
+
+        # Row 1: Main Metrics
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Dartboard (Equal Wgt)", f"{np.mean(res_ew):.2f}", f"{win_vs_spy:.0f}% Win Rate")
-        col2.metric("Index Proxy (Cap Wgt)", f"{np.mean(res_cw):.2f}")
-        col3.metric("S&P 500 (SPY)", f"{spy_sh:.2f}", delta_color="off")
-        col4.metric("Small Cap (IWM)", f"{iwm_sh:.2f}", delta_color="off")
+        col1.metric("🎯 Dartboard (EW)", f"{np.mean(res_ew):.2f}", f"Win Rate: {win_vs_spy:.0f}%")
+        col2.metric("📊 Index Proxy (CW)", f"{np.mean(res_cw):.2f}")
+        col3.metric("🏆 S&P 500", f"{spy_sh:.2f}", delta_color="off")
+        col4.metric("📈 Russell 2000", f"{iwm_sh:.2f}", delta_color="off")
+
+        # Row 2: Additional Stats
+        st.markdown("##### Detailed Statistics")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("EW Volatility", f"{np.std(res_ew):.2f}")
+        col2.metric("CW Volatility", f"{np.std(res_cw):.2f}")
+        col3.metric("EW vs CW Win %", f"{np.mean(res_ew > res_cw)*100:.0f}%")
+        col4.metric("Best EW Sharpe", f"{np.max(res_ew):.2f}")
         
+        # After running simulation:
+        ew_stats = eng.compute_statistics(res_ew)
+        cw_stats = eng.compute_statistics(res_cw)
+
+        col1.metric(
+            "Dartboard (Equal Wgt)", 
+            f"{ew_stats['mean']:.2f}",
+            help=f"95% CI: [{ew_stats['ci_95_low']:.2f}, {ew_stats['ci_95_high']:.2f}]"
+        )
+
+        # Add after metrics:
+        st.markdown("##### Side-by-Side Comparison")
+
+        comparison_df = pd.DataFrame({
+            'Metric': ['Mean Sharpe', 'Median Sharpe', 'Std Dev', 'Min', 'Max', '5th Percentile', '95th Percentile'],
+            'Dartboard (EW)': [
+                f"{np.mean(res_ew):.3f}",
+                f"{np.median(res_ew):.3f}",
+                f"{np.std(res_ew):.3f}",
+                f"{np.min(res_ew):.3f}",
+                f"{np.max(res_ew):.3f}",
+                f"{np.percentile(res_ew, 5):.3f}",
+                f"{np.percentile(res_ew, 95):.3f}"
+            ],
+            'Index Proxy (CW)': [
+                f"{np.mean(res_cw):.3f}",
+                f"{np.median(res_cw):.3f}",
+                f"{np.std(res_cw):.3f}",
+                f"{np.min(res_cw):.3f}",
+                f"{np.max(res_cw):.3f}",
+                f"{np.percentile(res_cw, 5):.3f}",
+                f"{np.percentile(res_cw, 95):.3f}"
+            ],
+            'SPY': [f"{spy_sh:.3f}", '-', '-', '-', '-', '-', '-'],
+            'IWM': [f"{iwm_sh:.3f}", '-', '-', '-', '-', '-', '-']
+        })
+
+        st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+
+        # Add after metrics:
+        st.subheader("📈 Statistical Significance")
+
+        sig_test = eng.test_ew_vs_cw(res_ew, res_cw)
+        if sig_test['significant']:
+            st.success(f"✅ EW vs CW difference is **statistically significant** (p = {sig_test['p_value']:.4f}, Cohen's d = {sig_test['cohens_d']:.2f})")
+        else:
+            st.info(f"ℹ️ EW vs CW difference is **not statistically significant** (p = {sig_test['p_value']:.4f})")
+
+        spy_test = eng.test_vs_benchmark(res_ew, spy_sh)
+        st.markdown(f"**Dartboard vs SPY:** {'Significantly different' if spy_test['significant'] else 'Not significantly different'} (p = {spy_test['p_value']:.4f})")
+
         # 4. Visualization
-        fig, ax = plt.subplots(figsize=(10,6))
-        ax.hist(res_ew, bins=40, alpha=0.6, density=True, label='Dartboard (Equal Wgt)', color='#1f77b4')
-        ax.hist(res_cw, bins=40, alpha=0.6, density=True, label='Index Proxy (Cap Wgt)', color='#ff7f0e')
-        ax.axvline(spy_sh, color='green', linewidth=3, label=f'S&P 500: {spy_sh:.2f}')
-        ax.axvline(iwm_sh, color='purple', linewidth=3, linestyle='-.', label=f'Russell 2000: {iwm_sh:.2f}')
-        ax.legend()
-        ax.set_title(f"Performance Distribution vs Benchmarks ({regime})")
-        ax.set_xlabel("Sharpe Ratio (Risk-Adjusted Return)")
-        st.pyplot(fig)
+
+        fig = go.Figure()
+
+        # Add histograms
+        fig.add_trace(go.Histogram(
+            x=res_ew,
+            name='Dartboard (Equal Wgt)',
+            opacity=0.6,
+            marker_color='#1f77b4',
+            histnorm='probability density',
+            nbinsx=40
+        ))
+
+        fig.add_trace(go.Histogram(
+            x=res_cw,
+            name='Index Proxy (Cap Wgt)',
+            opacity=0.6,
+            marker_color='#ff7f0e',
+            histnorm='probability density',
+            nbinsx=40
+        ))
+
+        # Add benchmark lines
+        fig.add_vline(x=spy_sh, line_color="green", line_width=3,
+                    annotation_text=f"SPY: {spy_sh:.2f}",
+                    annotation_position="top")
+        fig.add_vline(x=iwm_sh, line_color="purple", line_width=3, line_dash="dash",
+                    annotation_text=f"IWM: {iwm_sh:.2f}",
+                    annotation_position="bottom")
+
+        # Add mean lines
+        fig.add_vline(x=np.mean(res_ew), line_color="#1f77b4", line_width=2, line_dash="dot",
+                    annotation_text=f"EW Mean: {np.mean(res_ew):.2f}")
+
+        fig.update_layout(
+            title=f"<b>Performance Distribution vs Benchmarks</b><br><sub>{regime}</sub>",
+            xaxis_title="Sharpe Ratio (Risk-Adjusted Return)",
+            yaxis_title="Density",
+            barmode='overlay',
+            template='plotly_white',
+            height=500,
+            hovermode='x unified',
+            legend=dict(yanchor="top", y=0.99, xanchor="right", x=0.99)
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("📥 Export Results")
+
+        col1, col2 = st.columns(2)
+
+        # Download simulation data
+        results_df = pd.DataFrame({
+            'Simulation': range(1, len(res_ew) + 1),
+            'EqualWeight_Sharpe': res_ew,
+            'CapWeight_Sharpe': res_cw
+        })
+
+        with col1:
+            csv = results_df.to_csv(index=False)
+            st.download_button(
+                label="📊 Download Raw Data (CSV)",
+                data=csv,
+                file_name=f"dartboard_results_{regime.replace(' ', '_')}.csv",
+                mime="text/csv"
+            )
+
+        # Download summary statistics
+        with col2:
+            summary = f"""
+        Dartboard Experiment Results
+        ============================
+        Regime: {regime}
+        Simulations: {n_sims}
+        Stocks per Portfolio: {n_stocks}
+        Risk-Free Rate: {rf:.2%}
+
+        Equal-Weight (Dartboard):
+        Mean Sharpe: {np.mean(res_ew):.4f}
+        Std Dev: {np.std(res_ew):.4f}
+        95% CI: [{ew_stats['ci_95_low']:.4f}, {ew_stats['ci_95_high']:.4f}]
+
+        Cap-Weight (Index Proxy):
+        Mean Sharpe: {np.mean(res_cw):.4f}
+        Std Dev: {np.std(res_cw):.4f}
+
+        Benchmarks:
+        SPY Sharpe: {spy_sh:.4f}
+        IWM Sharpe: {iwm_sh:.4f}
+
+        Win Rate vs SPY: {np.mean(res_ew > spy_sh) * 100:.1f}%
+        """
+            st.download_button(
+                label="📝 Download Summary Report",
+                data=summary,
+                file_name=f"dartboard_summary_{regime.replace(' ', '_')}.txt",
+                mime="text/plain"
+            )
         
         # Get HTML and dynamic height
         html_output, component_height = describe_simulation_distribution(
@@ -647,27 +864,17 @@ elif page == "📚 Theory & Methodology":
     # =========================================================
     # 9) SOURCE CODE
     # =========================================================
+    # Replace the source code section with:
     st.header("8. The Source Code")
-    st.markdown("""
-    We believe in **open, reproducible research**. Below is the exact Python code used to run these simulations.
-    You can verify every calculation and methodology claim made above.
-    """)
-    
-    # Safe file reading
-    from pathlib import Path
-    engine_path = Path(__file__).parent / "engine.py" if "__file__" in dir() else Path("engine.py")
-    
-    try:
-        st.code(engine_path.read_text(), language="python")
-    except FileNotFoundError:
+    st.markdown("We believe in **open, reproducible research**.")
+
+    with st.expander("📄 Click to view engine.py source code"):
         try:
             with open("engine.py", "r") as f:
                 st.code(f.read(), language="python")
         except FileNotFoundError:
             st.error("engine.py not found")
-
-    st.divider()
-    
+        
     # =========================================================
     # 10) REFERENCES
     # =========================================================
@@ -682,5 +889,19 @@ elif page == "📚 Theory & Methodology":
         <li>Fama, E. & French, K. (1993). <i>"Common Risk Factors in the Returns on Stocks and Bonds."</i> Journal of Financial Economics.</li>
         <li>Elton, E., Gruber, M., & Blake, C. (1996). <i>"Survivorship Bias and Mutual Fund Performance."</i> Review of Financial Studies.</li>
     </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
+    ---
+
+
+
+
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align: center; color: #888; font-size: 0.8em;">
+        <p>Built with ❤️ using Streamlit | Data: CRSP via WRDS | 
+        <a href="https://github.com/Scott-Switzer/Random-Portfolio" target="_blank">GitHub</a></p>
+        <p>⚠️ This is an educational tool. Not financial advice. Past performance ≠ future results.</p>
     </div>
     """, unsafe_allow_html=True)

@@ -1,9 +1,20 @@
-# engine.py
+from typing import Tuple, List, Optional, Callable, Dict
 import pandas as pd
 import numpy as np
 import yfinance as yf
+from numba import jit
+from scipy import stats
+import logging
+from functools import wraps
 
-def load_and_clean_data(filepath, min_mkt_cap=10000):
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def load_and_clean_data(
+    filepath: str, 
+    min_mkt_cap: float = 10000
+) -> Tuple[pd.DataFrame, pd.DataFrame, Optional[pd.Timestamp], Optional[pd.Timestamp]]:
+
     """
     Loads CRSP data, filters for liquidity, and creates aligned matrices.
     """
@@ -65,19 +76,56 @@ def get_dynamic_rf(start_date, end_date):
         print(f"ENGINE RF ERROR: {e}. Defaulting to 3%.")
         return 0.03
 
-def calculate_sharpe(monthly_returns, rf_rate):
-    """Helper for vectorized Sharpe calculation."""
-    if len(monthly_returns) < 6: return 0.0
+
+@jit(nopython=True)
+def calculate_sharpe_fast(monthly_returns, rf_rate):
+    """Numba-accelerated Sharpe calculation."""
+    n = len(monthly_returns)
+    if n < 6:
+        return 0.0
     
     # Geometric average annual return
-    growth = np.prod(1 + monthly_returns)
-    n_years = len(monthly_returns) / 12
-    ann_ret = (growth ** (1/n_years)) - 1 if n_years > 0 else 0
+    growth = 1.0
+    for r in monthly_returns:
+        growth *= (1 + r)
+    
+    n_years = n / 12.0
+    ann_ret = (growth ** (1.0 / n_years)) - 1.0 if n_years > 0 else 0.0
     
     # Annualized volatility
-    ann_vol = np.std(monthly_returns) * np.sqrt(12)
+    mean_ret = 0.0
+    for r in monthly_returns:
+        mean_ret += r
+    mean_ret /= n
     
-    return (ann_ret - rf_rate) / ann_vol if ann_vol > 0 else 0
+    variance = 0.0
+    for r in monthly_returns:
+        variance += (r - mean_ret) ** 2
+    variance /= (n - 1)
+    
+    ann_vol = (variance ** 0.5) * (12 ** 0.5)
+    
+    return (ann_ret - rf_rate) / ann_vol if ann_vol > 0 else 0.0
+
+# Add to engine.py
+from functools import wraps
+
+def handle_errors(default_return):
+    """Decorator to handle errors gracefully."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Error in {func.__name__}: {e}")
+                return default_return
+        return wrapper
+    return decorator
+
+@handle_errors(default_return=(0.0, 0.0))
+def get_benchmark_stats(ticker: str, start_date, end_date, rf_rate: float) -> Tuple[float, float]:
+    # ... existing code
 
 def get_benchmark_stats(ticker, start_date, end_date, rf_rate):
     """Fetches external benchmark (SPY/IWM) for comparison."""
@@ -117,7 +165,7 @@ def get_benchmark_stats(ticker, start_date, end_date, rf_rate):
         print(f"ENGINE BENCHMARK ERROR ({ticker}): {e}")
         return 0.0, 0.0
 
-# engine.py (Partial Update - Replace run_monte_carlo only)
+
 
 def run_monte_carlo(ret_matrix, cap_matrix, n_sims, n_stocks, rf_rate, progress_callback=None):
     """
@@ -164,3 +212,93 @@ def run_monte_carlo(ret_matrix, cap_matrix, n_sims, n_stocks, rf_rate, progress_
     if progress_callback: progress_callback(1.0)
     
     return np.array(results_ew), np.array(results_cw), sample_portfolios
+
+from scipy import stats
+
+def compute_statistics(results):
+    """Compute comprehensive statistics for simulation results."""
+    n = len(results)
+    mean = np.mean(results)
+    std = np.std(results, ddof=1)
+    se = std / np.sqrt(n)
+    
+    # 95% Confidence Interval
+    ci_95 = stats.t.interval(0.95, df=n-1, loc=mean, scale=se)
+    
+    # Percentiles
+    percentiles = np.percentile(results, [5, 25, 50, 75, 95])
+    
+    return {
+        'mean': mean,
+        'std': std,
+        'se': se,
+        'ci_95_low': ci_95[0],
+        'ci_95_high': ci_95[1],
+        'p5': percentiles[0],
+        'p25': percentiles[1],
+        'median': percentiles[2],
+        'p75': percentiles[3],
+        'p95': percentiles[4]
+    }
+
+def test_ew_vs_cw(res_ew, res_cw):
+    """Test if EW significantly differs from CW."""
+    t_stat, p_value = stats.ttest_rel(res_ew, res_cw)
+    cohens_d = (np.mean(res_ew) - np.mean(res_cw)) / np.sqrt(
+        (np.std(res_ew)**2 + np.std(res_cw)**2) / 2
+    )
+    return {
+        't_stat': t_stat,
+        'p_value': p_value,
+        'cohens_d': cohens_d,
+        'significant': p_value < 0.05
+    }
+
+def test_vs_benchmark(results, benchmark_sharpe):
+    """One-sample t-test: do results significantly differ from benchmark?"""
+    t_stat, p_value = stats.ttest_1samp(results, benchmark_sharpe)
+    return {
+        't_stat': t_stat,
+        'p_value': p_value,
+        'significant': p_value < 0.05
+    }
+
+def run_rolling_analysis(ret_matrix, cap_matrix, window_years=5, n_sims=100, n_stocks=30, rf_rate=0.03):
+    """Run simulation over rolling windows to show time-varying results."""
+    results = []
+    window_months = window_years * 12
+    dates = ret_matrix.index
+    
+    for start_idx in range(0, len(dates) - window_months, 12):  # Step by 1 year
+        end_idx = start_idx + window_months
+        
+        sub_ret = ret_matrix.iloc[start_idx:end_idx]
+        sub_cap = cap_matrix.iloc[start_idx:end_idx]
+        
+        res_ew, res_cw, _ = run_monte_carlo(sub_ret, sub_cap, n_sims, n_stocks, rf_rate, None)
+        
+        results.append({
+            'start_date': dates[start_idx],
+            'end_date': dates[end_idx-1],
+            'ew_mean': np.mean(res_ew),
+            'cw_mean': np.mean(res_cw),
+            'ew_win_rate': np.mean(res_ew > res_cw) * 100
+        })
+    
+    return pd.DataFrame(results)
+
+def bootstrap_ci(data, n_bootstrap=1000, confidence=0.95):
+    """Bootstrap confidence interval for the mean."""
+    boot_means = []
+    n = len(data)
+    
+    for _ in range(n_bootstrap):
+        sample = np.random.choice(data, size=n, replace=True)
+        boot_means.append(np.mean(sample))
+    
+    lower = np.percentile(boot_means, (1 - confidence) / 2 * 100)
+    upper = np.percentile(boot_means, (1 + confidence) / 2 * 100)
+    
+    return lower, upper
+
+
