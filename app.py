@@ -250,9 +250,162 @@ def get_data():
 
 ret_matrix, cap_matrix, min_date, max_date = get_data()
 
+# --- DATA ---
+@st.cache_data
+def get_data():
+    return eng.load_and_clean_data('US_SPYdata_2000_2024.csv')
+
+ret_matrix, cap_matrix, min_date, max_date = get_data()
+
+
+def about_page():
+    st.title("About")
+
+    st.header("Scott T. Switzer")
+    st.subheader("Finance and Economics Student at Chapman University")
+
+    col1, col2, col3 = st.columns([1, 1, 2])
+    with col1:
+        st.link_button("💼 LinkedIn", "https://www.linkedin.com/in/scottswitzer-/")
+    with col2:
+        st.link_button("💻 GitHub", "https://github.com/Scott-Switzer")
+
+    st.divider()
+
+    st.header("📊 About This Project")
+
+    st.info('''
+*"A blindfolded monkey throwing darts at a newspaper's financial pages could select 
+a portfolio that would do just as well as one carefully selected by experts."*  
+— Burton Malkiel, *A Random Walk Down Wall Street* (1973)
+    ''')
+
+    st.markdown('''
+After learning about the **Random Walk Hypothesis** and **Efficient Market Theory** in class, 
+I wanted to put Malkiel's provocative claim to the test—at scale. Research has shown 
+interesting results: one simulation of 100 "monkey" portfolios found that **98 out of 100 
+beat the market**.
+
+**Why I Built This:**
+- To empirically test a foundational theory in finance using real market data
+- To practice building end-to-end data science projects with financial applications
+- To deploy a live experiment that continuously tracks random vs. strategic portfolio performance
+- To bridge my coursework in econometrics and quantitative methods with hands-on application
+    ''')
+
+    with st.expander("🎓 What I Learned Building This Project"):
+        st.markdown('''
+- Full-stack deployment of a financial analytics application
+- Working with financial APIs and real-time market data pipelines
+- Statistical analysis of portfolio performance and benchmark comparison
+- Cloud deployment and automation for continuous data collection
+- The practical challenges of turning academic theory into a working experiment
+        ''')
+
+    st.divider()
+
+    st.header("🎓 Education")
+
+    st.markdown('''
+**Chapman University** — Argyros College of Business & Economics  
+*B.A. Economics & B.S. Business Administration (Finance) | Minor in Analytics*  
+📅 Expected Graduation: **May 2027**
+    ''')
+
+    with st.expander("📚 Relevant Coursework"):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown('''
+**Quantitative & Data:**
+- Econometrics
+- Introduction to Data Science
+- Statistical Models in Business
+- Foundations of Business Analytics
+- Computer Science I
+            ''')
+        with col2:
+            st.markdown('''
+**Finance & Economics:**
+- Investments
+- Intermediate Financial Management
+- Quantitative Methods in Finance
+- Managerial Economics
+- Intermediate Micro/Macro Theory
+            ''')
+
+    st.divider()
+
+    st.header("💼 Experience")
+
+    st.markdown('''
+**Investment Research Analyst Intern**  
+*4TH Exit Capital* — May 2024 – August 2024
+    ''')
+
+    st.divider()
+
+    st.header("🛠️ Technical Skills")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown('''
+**Programming:**  
+`Python` `NumPy` `pandas` `scikit-learn` `statsmodels` `SQL` `R`
+
+**Financial Data:**  
+`Bloomberg (BQL)` `WRDS/Compustat` `FRED` `FMP API`
+        ''')
+
+    with col2:
+        st.markdown('''
+**Statistical Methods:**  
+`OLS/LASSO` `PCA` `Factor Models` `Classification`
+
+**Tools & Platforms:**  
+`Jupyter` `VS Code` `Excel` `Git` `Streamlit` `Cloud Deployment`
+        ''')
+
+    st.divider()
+
+    st.header("🎯 What I'm Looking For")
+
+    st.success("**Seeking Summer 2026 internships in quantitative trading**")
+
+    st.markdown('''
+I'm interested in roles at the intersection of finance, data science, and algorithmic 
+decision-making—particularly in **financial engineering** and **algorithmic trading**.
+    ''')
+
+    st.divider()
+
+    st.header("🏀 Beyond Finance")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("🃏 **Bridge** player")
+    with col2:
+        st.markdown("🏀 **Basketball** enthusiast")
+    with col3:
+        st.markdown("📈 **Quant strategies** explorer")
+
+    st.divider()
+
+    st.header("📬 Contact")
+
+    st.markdown('''
+📧 **Email:** scott.t.switzer@gmail.com  
+💼 **LinkedIn:** [linkedin.com/in/scottswitzer-/](https://www.linkedin.com/in/scottswitzer-/)  
+💻 **GitHub:** [github.com/Scott-Switzer](https://github.com/Scott-Switzer)
+    ''')
+
+    st.caption("Feel free to reach out if you'd like to discuss the project, collaborate, or chat about opportunities in quantitative finance!")
+
+
+
 # --- SIDEBAR NAV ---
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to:", ["🚀 The Experiment", "📚 Theory & Methodology","About"])
+page = st.sidebar.radio("Go to:", ["🚀 The Experiment", "📚 Theory & Methodology","ℹ️ About"])
 
 # =========================================================
 # PAGE 1: THE EXPERIMENT (SIMULATOR)
@@ -905,167 +1058,5 @@ elif page == "📚 Theory & Methodology":
     </div>
     """, unsafe_allow_html=True)
 
-
-    def about_page():
-        """About Me page for the Dartboard Experiment Streamlit app"""
-        
-        st.title("About")
-        
-        # Header section
-        st.header("Scott T. Switzer")
-        st.subheader("Finance and Economics Student at Chapman University")
-        
-        # Add LinkedIn and GitHub buttons in columns
-        col1, col2, col3 = st.columns([1, 1, 2])
-        with col1:
-            st.link_button("💼 LinkedIn", "https://www.linkedin.com/in/scottswitzer-/")
-        with col2:
-            st.link_button("💻 GitHub", "https://github.com/Scott-Switzer")
-        
-        st.divider()
-        
-        # About the Project
-        st.header("📊 About This Project")
-        
-        st.markdown("""
-        This project is inspired by economist **Burton Malkiel's** famous hypothesis from his 
-        1973 book *A Random Walk Down Wall Street*:
-        """)
-        
-        st.info("""
-        *"A blindfolded monkey throwing darts at a newspaper's financial pages could select 
-        a portfolio that would do just as well as one carefully selected by experts."*  
-        — Burton Malkiel
-        """)
-        
-        st.markdown("""
-        After learning about the **Random Walk Hypothesis** and **Efficient Market Theory** in class, 
-        I wanted to put Malkiel's provocative claim to the test—at scale. Research has shown 
-        interesting results: one simulation of 100 "monkey" portfolios found that **98 out of 100 
-        beat the market**.
-        
-        **Why I Built This:**
-        - To empirically test a foundational theory in finance using real market data
-        - To practice building end-to-end data science projects with financial applications
-        - To deploy a live experiment that continuously tracks random vs. strategic portfolio performance
-        - To bridge my coursework in econometrics and quantitative methods with hands-on application
-        """)
-        
-        with st.expander("🎓 What I Learned Building This Project"):
-            st.markdown("""
-            - Full-stack deployment of a financial analytics application
-            - Working with financial APIs and real-time market data pipelines
-            - Statistical analysis of portfolio performance and benchmark comparison
-            - Cloud deployment and automation for continuous data collection
-            - The practical challenges of turning academic theory into a working experiment
-            """)
-        
-        st.divider()
-        
-        # Education
-        st.header("🎓 Education")
-        
-        st.markdown("""
-        **Chapman University** — Argyros College of Business & Economics  
-        *B.A. Economics & B.S. Business Administration (Finance) | Minor in Analytics*  
-        📅 Expected Graduation: **May 2027**
-        """)
-        
-        with st.expander("📚 Relevant Coursework"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("""
-                **Quantitative & Data:**
-                - Econometrics
-                - Introduction to Data Science
-                - Statistical Models in Business
-                - Foundations of Business Analytics
-                - Computer Science I
-                """)
-            with col2:
-                st.markdown("""
-                **Finance & Economics:**
-                - Investments
-                - Intermediate Financial Management
-                - Quantitative Methods in Finance
-                - Managerial Economics
-                - Intermediate Micro/Macro Theory
-                """)
-        
-        st.divider()
-        
-        # Experience
-        st.header("💼 Experience")
-        
-        st.markdown("""
-        **Investment Research Analyst Intern**  
-        *4TH Exit Capital* — May 2024 – August 2024
-        """)
-        
-        st.divider()
-        
-        # Technical Skills
-        st.header("🛠️ Technical Skills")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            **Programming:**  
-            `Python` `NumPy` `pandas` `scikit-learn` `statsmodels` `SQL` `R`
-            
-            **Financial Data:**  
-            `Bloomberg (BQL)` `WRDS/Compustat` `FRED` `FMP API`
-            """)
-        
-        with col2:
-            st.markdown("""
-            **Statistical Methods:**  
-            `OLS/LASSO` `PCA` `Factor Models` `Classification`
-            
-            **Tools & Platforms:**  
-            `Jupyter` `VS Code` `Excel` `Git` `Streamlit` `Cloud Deployment`
-            """)
-        
-        st.divider()
-        
-        # What I'm Looking For
-        st.header("🎯 What I'm Looking For")
-        
-        st.success("**Seeking Summer 2026 internships in quantitative trading**")
-        
-        st.markdown("""
-        I'm interested in roles at the intersection of finance, data science, and algorithmic 
-        decision-making—particularly in **financial engineering** and **algorithmic trading**.
-        """)
-        
-        st.divider()
-        
-        # Personal
-        st.header("🏀 Beyond Finance")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown("🃏 **Bridge** player")
-        with col2:
-            st.markdown("🏀 **Basketball** enthusiast")
-        with col3:
-            st.markdown("📈 **Quant strategies** explorer")
-        
-        st.divider()
-        
-        # Contact
-        st.header("📬 Contact")
-        
-        st.markdown("""
-        📧 **Email:** scott.t.switzer@gmail.com  
-        💼 **LinkedIn:** [linkedin.com/in/scottswitzer-/](https://www.linkedin.com/in/scottswitzer-/)  
-        💻 **GitHub:** [github.com/Scott-Switzer](https://github.com/Scott-Switzer)
-        """)
-        
-       
-        st.caption("Feel free to reach out if you'd like to discuss the project, collaborate, or chat about opportunities in quantitative finance!")
-    
-elif page == "About":
+elif page == "ℹ️ About":
     about_page()
-
