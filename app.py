@@ -905,8 +905,6 @@ elif page == "📚 Theory & Methodology":
     </div>
     """, unsafe_allow_html=True)
 
-elif page == "About":
-    about_page()
 
     def about_page():
         """About Me page for the Dartboard Experiment Streamlit app"""
@@ -1065,6 +1063,9 @@ elif page == "About":
         💻 **GitHub:** [github.com/Scott-Switzer](https://github.com/Scott-Switzer)
         """)
         
+       
         st.caption("Feel free to reach out if you'd like to discuss the project, collaborate, or chat about opportunities in quantitative finance!")
-
+    
+elif page == "About":
+    about_page()
 
