@@ -618,9 +618,10 @@ elif page == "📚 Theory & Methodology":
     | "Is beating the market hard?" | If benchmark is in the **right tail** → Yes, few random portfolios beat it |
     | "Does weighting matter?" | Compare the **two histograms** — if they're shifted, weighting has systematic effects |
     """)
-    
+
     st.markdown("**Win Rate Calculation:**")
-    st.latex(r"\text{Win Rate vs SPY} = \frac{\text{# simulations where } Sharpe_{portfolio} > Sharpe_{SPY}}{N_{simulations}} \times 100\%")
+    st.latex(r"\text{Win Rate} = \frac{\sum_{i=1}^{N} \mathbf{1}(Sharpe_i > Sharpe_{SPY})}{N} \times 100\%")
+    st.markdown("Where $\mathbf{1}(\\cdot)$ is an indicator function that equals 1 when the condition is true, 0 otherwise.")
 
     st.divider()
 
