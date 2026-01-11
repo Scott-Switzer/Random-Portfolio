@@ -905,7 +905,7 @@ elif page == "📚 Theory & Methodology":
     </div>
     """, unsafe_allow_html=True)
 
-    elif page == "About":
+elif page == "About":
     about_page()
 
     def about_page():
