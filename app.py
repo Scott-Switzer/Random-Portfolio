@@ -101,7 +101,7 @@ st.divider()
 if current_page == "home":
     # Hero Section
     st.markdown("""
-    <div class="hero">
+    <div class="hero-container">
         <div class="hero-icon">🎯</div>
         <h1 class="hero-title">The Dartboard Experiment</h1>
         <p class="hero-subtitle">Can random chance match indices?</p>
@@ -158,20 +158,19 @@ def _tail_label(pct: float) -> str:
 def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, regime_label=""):
     """
     Build a dynamic explanation string based on the realized distributions.
-    res_ew/res_cw: arrays of Sharpe ratios from the simulation.
-    spy_sh/iwm_sh: benchmark Sharpes (floats). Can be None.
     """
+    c = get_colors()  # Get theme-aware colors
+    
     res_ew = np.asarray(res_ew, dtype=float)
     res_cw = np.asarray(res_cw, dtype=float)
 
-    # Drop NaNs safely
     res_ew = res_ew[np.isfinite(res_ew)]
     res_cw = res_cw[np.isfinite(res_cw)]
 
     if len(res_ew) < 10 or len(res_cw) < 10:
-        return """
-        <div class="theory-box">
-        <h3>Interpreting the Simulation Results</h3>
+        return f"""
+        <div style="background-color: {c['bg_secondary']}; color: {c['text_primary']}; padding: 20px; border-radius: 10px; border: 1px solid {c['border']};">
+        <h3 style="color: {c['accent']}; margin-top: 0;">Interpreting the Simulation Results</h3>
         <p>Not enough valid simulation output to generate a reliable distribution summary.</p>
         </div>
         """, 200
@@ -193,11 +192,9 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
     ew = summarize(res_ew)
     cw = summarize(res_cw)
 
-    # Paired comparison
     n_pair = min(len(res_ew), len(res_cw))
     pair_win = float(np.mean(res_ew[:n_pair] > res_cw[:n_pair]) * 100.0)
 
-    # Benchmark positioning
     bench_lines = []
     def bench_block(name, b):
         if b is None or not np.isfinite(b):
@@ -215,53 +212,45 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
 
     header = f" ({regime_label})" if regime_label else ""
 
-    # FIXED CSS - Forces light theme regardless of Streamlit's dark mode
-    css = """
+    # Theme-aware CSS
+    css = f"""
     <style>
-    * {
-        box-sizing: border-box;
-    }
-    html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-        background-color: #f8f9fa !important;
-    }
-    .theory-box {
-        background-color: #f8f9fa !important;
-        color: #111111 !important;
-        padding: 20px !important;
-        border-radius: 10px !important;
-        margin-bottom: 15px !important;
-        line-height: 1.7 !important;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08) !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
-    }
-    .theory-box h3 { 
-        color: #0b3c5d !important; 
-        margin-top: 0 !important; 
-        margin-bottom: 12px !important;
-    }
-    .theory-box p {
-        color: #111111 !important;
-        margin-bottom: 10px !important;
-    }
-    .theory-box ul { 
-        margin: 0.5rem 0 1rem 1.2rem !important; 
-        color: #111111 !important;
-    }
-    .theory-box li {
-        color: #111111 !important;
-        margin-bottom: 8px !important;
-    }
-    .theory-box b, .theory-box strong {
-        color: #0b3c5d !important;
-    }
+    .results-box {{
+        background-color: {c['bg_secondary']};
+        color: {c['text_primary']};
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        line-height: 1.7;
+        border: 1px solid {c['border']};
+        font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }}
+    .results-box h3 {{ 
+        color: {c['accent']}; 
+        margin-top: 0; 
+        margin-bottom: 12px;
+        font-family: 'IBM Plex Serif', Georgia, serif;
+    }}
+    .results-box p {{
+        color: {c['text_primary']};
+        margin-bottom: 10px;
+    }}
+    .results-box ul {{ 
+        margin: 0.5rem 0 1rem 1.2rem;
+        color: {c['text_primary']};
+    }}
+    .results-box li {{
+        color: {c['text_primary']};
+        margin-bottom: 8px;
+    }}
+    .results-box b, .results-box strong {{
+        color: {c['accent']};
+    }}
     </style>
     """
 
-    # Build content
     html_content = f"""
-    <div class="theory-box">
+    <div class="results-box">
       <h3>Interpreting the Simulation Results{header}</h3>
 
       <p><b>What this chart shows:</b> Each histogram is the distribution of Sharpe ratios from repeated portfolio simulations over the selected period.
@@ -283,8 +272,8 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
     """
 
     if bench_lines:
-        html_content += """
-        <div class="theory-box">
+        html_content += f"""
+        <div class="results-box">
           <h3>Benchmark Positioning</h3>
           <p><b>How do the benchmarks compare to our random portfolios?</b></p>
           <ul>
@@ -302,7 +291,6 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
         </div>
         """
 
-    # Calculate dynamic height based on content
     base_height = 420
     bench_height = 280 if bench_lines else 0
     total_height = base_height + bench_height
@@ -313,7 +301,7 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
     <head>
     <meta charset="utf-8">
     </head>
-    <body>
+    <body style="background-color: {c['bg_primary']}; margin: 0; padding: 0;">
     {css}
     {html_content}
     </body>
@@ -330,130 +318,166 @@ def get_data():
 
 ret_matrix, cap_matrix, min_date, max_date = get_data()
 
-
-
 def about_page():
-    st.title("About")
+    # Sidebar navigation for About page
+    st.sidebar.markdown("### ℹ️ About")
+    st.sidebar.markdown("---")
+    
+    about_sections = [
+        ("project", "About This Project"),
+        ("education", "Education"),
+        ("experience", "Experience"),
+        ("skills", "Technical Skills"),
+        ("looking_for", "What I'm Looking For"),
+        ("beyond", "Beyond Finance"),
+        ("contact", "Contact"),
+    ]
+    
+    selected_section = st.sidebar.radio(
+        "Jump to:",
+        options=[s[0] for s in about_sections],
+        format_func=lambda x: dict(about_sections)[x],
+        label_visibility="collapsed"
+    )
+    
+    st.sidebar.markdown("---")
+    
+    # Main content
+    st.markdown('<h1 style="text-align: center;">About</h1>', unsafe_allow_html=True)
 
-    st.header("Scott T. Switzer")
-    st.subheader("Finance and Economics Student at Chapman University")
+    st.markdown('<h2 style="text-align: center;">Scott T. Switzer</h2>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: #6B7280;">Finance and Economics Student at Chapman University</p>', unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 1, 2])
-    with col1:
-        st.link_button("💼 LinkedIn", "https://www.linkedin.com/in/scottswitzer-/")
+    # Centered buttons
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.link_button("💻 GitHub", "https://github.com/Scott-Switzer")
+        btn1, btn2 = st.columns(2)
+        with btn1:
+            st.link_button("💼 LinkedIn", "https://www.linkedin.com/in/scottswitzer-/", use_container_width=True)
+        with btn2:
+            st.link_button("💻 GitHub", "https://github.com/Scott-Switzer", use_container_width=True)
 
     st.divider()
 
-    st.header("📊 About This Project")
+    # About This Project
+    c = get_colors()
+    st.markdown(f'<div class="section-header">About This Project</div>', unsafe_allow_html=True)
 
-    st.info('''
-*"A blindfolded monkey throwing darts at a newspaper's financial pages could select 
-a portfolio that would do just as well as one carefully selected by experts."*  
-— Burton Malkiel, *A Random Walk Down Wall Street* (1973)
-    ''')
+    st.markdown(f"""
+    <div class="quote-box">
+        <p>"A blindfolded monkey throwing darts at a newspaper's financial pages could select 
+        a portfolio that would do just as well as one carefully selected by experts."</p>
+        <div class="attribution">— Burton Malkiel, <em>A Random Walk Down Wall Street</em> (1973)</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown('''
+    st.markdown("""
 After learning about the **Random Walk Hypothesis** and **Efficient Market Theory** in class, 
 I wanted to put Malkiel's provocative claim to the test—at scale. Research has shown 
 interesting results: one simulation of 100 "monkey" portfolios found that **98 out of 100 
 beat the market**.
-
-**Why I Built This:**
+    """)
+    
+    st.markdown("**Why I Built This:**")
+    st.markdown("""
 - To empirically test a foundational theory in finance using real market data
 - To practice building end-to-end data science projects with financial applications
 - To deploy a live experiment that continuously tracks random vs. strategic portfolio performance
 - To bridge my coursework in econometrics and quantitative methods with hands-on application
-    ''')
+    """)
 
     with st.expander("🎓 What I Learned Building This Project"):
-        st.markdown('''
+        st.markdown("""
 - Full-stack deployment of a financial analytics application
 - Working with financial APIs and real-time market data pipelines
 - Statistical analysis of portfolio performance and benchmark comparison
 - Cloud deployment and automation for continuous data collection
 - The practical challenges of turning academic theory into a working experiment
-        ''')
+        """)
 
     st.divider()
 
-    st.header("🎓 Education")
+    # Education
+    st.markdown(f'<div class="section-header">Education</div>', unsafe_allow_html=True)
 
-    st.markdown('''
+    st.markdown("""
 **Chapman University** — Argyros College of Business & Economics  
 *B.A. Economics & B.S. Business Administration (Finance) | Minor in Analytics*  
 📅 Expected Graduation: **May 2027**
-    ''')
+    """)
 
     with st.expander("📚 Relevant Coursework"):
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown('''
+            st.markdown("""
 **Quantitative & Data:**
 - Econometrics
 - Introduction to Data Science
 - Statistical Models in Business
 - Foundations of Business Analytics
 - Computer Science I
-            ''')
+            """)
         with col2:
-            st.markdown('''
+            st.markdown("""
 **Finance & Economics:**
 - Investments
 - Intermediate Financial Management
 - Quantitative Methods in Finance
 - Managerial Economics
 - Intermediate Micro/Macro Theory
-            ''')
+            """)
 
     st.divider()
 
-    st.header("💼 Experience")
+    # Experience
+    st.markdown(f'<div class="section-header">Experience</div>', unsafe_allow_html=True)
 
-    st.markdown('''
+    st.markdown("""
 **Investment Research Analyst Intern**  
 *4TH Exit Capital* — May 2024 – August 2024
-    ''')
+    """)
 
     st.divider()
 
-    st.header("🛠️ Technical Skills")
+    # Technical Skills
+    st.markdown(f'<div class="section-header">Technical Skills</div>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown('''
+        st.markdown("""
 **Programming:**  
 `Python` `NumPy` `pandas` `scikit-learn` `statsmodels` `SQL` `R`
 
 **Financial Data:**  
 `Bloomberg (BQL)` `WRDS/Compustat` `FRED` `FMP API`
-        ''')
+        """)
 
     with col2:
-        st.markdown('''
+        st.markdown("""
 **Statistical Methods:**  
 `OLS/LASSO` `PCA` `Factor Models` `Classification`
 
 **Tools & Platforms:**  
 `Jupyter` `VS Code` `Excel` `Git` `Streamlit` `Cloud Deployment`
-        ''')
+        """)
 
     st.divider()
 
-    st.header("🎯 What I'm Looking For")
+    # What I'm Looking For
+    st.markdown(f'<div class="section-header">What I\'m Looking For</div>', unsafe_allow_html=True)
 
     st.success("**Seeking Summer 2026 internships in quantitative trading**")
 
-    st.markdown('''
+    st.markdown("""
 I'm interested in roles at the intersection of finance, data science, and algorithmic 
 decision-making—particularly in **financial engineering** and **algorithmic trading**.
-    ''')
+    """)
 
     st.divider()
 
-    st.header("🏀 Beyond Finance")
+    # Beyond Finance
+    st.markdown(f'<div class="section-header">Beyond Finance</div>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -465,17 +489,19 @@ decision-making—particularly in **financial engineering** and **algorithmic tr
 
     st.divider()
 
-    st.header("📬 Contact")
+    # Contact
+    st.markdown(f'<div class="section-header">Contact</div>', unsafe_allow_html=True)
 
-    st.markdown('''
+    st.markdown("""
 📧 **Email:** scott.t.switzer@gmail.com  
 💼 **LinkedIn:** [linkedin.com/in/scottswitzer-/](https://www.linkedin.com/in/scottswitzer-/)  
 💻 **GitHub:** [github.com/Scott-Switzer](https://github.com/Scott-Switzer)
-    ''')
+    """)
 
     st.caption("Feel free to reach out if you'd like to discuss the project, collaborate, or chat about opportunities in quantitative finance!")
-    render_footer()
 
+    # Footer INSIDE the function
+    render_footer()
 
 
 # =========================================================
@@ -777,13 +803,37 @@ if current_page == "experiment":
                 with st.expander("See full list"):
                     st.write(sample_ports[i])
 
-        render_footer()
+    render_footer()
 
 # =========================================================
 # PAGE 2: THEORY & METHODOLOGY
 # =========================================================
 elif current_page == "theory":
+    # Sidebar navigation for this page
+    st.sidebar.markdown("### 📚 Theory & Methodology")
+    st.sidebar.markdown("---")
     st.markdown('<p class="big-header">📚 The Academic Framework</p>', unsafe_allow_html=True)
+    
+    theory_sections = [
+        ("emh", "Efficient Market Hypothesis"),
+        ("random_walk", "Random Walk Theory"),
+        ("monte_carlo", "Monte Carlo Methodology"),
+        ("sharpe", "The Sharpe Ratio"),
+        ("data", "Data & Methodology"),
+        ("weighting", "Weighting Schemes"),
+        ("interpretation", "Interpreting Results"),
+        ("limitations", "Limitations"),
+        ("code", "Source Code"),
+        ("references", "References"),
+    ]
+    
+    selected_section = st.sidebar.radio(
+        "Jump to:",
+        options=[s[0] for s in theory_sections],
+        format_func=lambda x: dict(theory_sections)[x],
+    )
+    
+    st.sidebar.markdown("---")
 
     # =========================================================
     # 1) EMH
