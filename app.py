@@ -6,7 +6,11 @@ import datetime
 import engine as eng
 import streamlit.components.v1 as components
 import config as cfg
-from styles import apply_styles, get_theme, toggle_theme, render_footer, render_metric_card, render_section_title, render_quote_box
+from styles import (
+    apply_styles, get_theme, toggle_theme, get_colors,
+    render_footer, render_metric_cards, render_quote_box, render_section_header
+)
+
 
 
 st.set_page_config(
