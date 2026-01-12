@@ -323,34 +323,6 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
     return full_html, total_height
 
 
-
-st.markdown("""
-<style>
-.theory-box {
-    background-color: #f8f9fa;   /* light gray */
-    color: #111111;              /* dark text */
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    line-height: 1.6;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-}
-
-.theory-box h3 {
-    color: #0b3c5d;               /* dark blue header */
-}
-
-.theory-box a {
-    color: #1f77b4;
-    text-decoration: none;
-}
-
-.theory-box a:hover {
-    text-decoration: underline;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # --- DATA ---
 @st.cache_data
 def get_data():
@@ -358,12 +330,6 @@ def get_data():
 
 ret_matrix, cap_matrix, min_date, max_date = get_data()
 
-# --- DATA ---
-@st.cache_data
-def get_data():
-    return eng.load_and_clean_data('US_SPYdata_2000_2024.csv')
-
-ret_matrix, cap_matrix, min_date, max_date = get_data()
 
 
 def about_page():
