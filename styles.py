@@ -514,38 +514,74 @@ def render_footer():
     theme = get_theme()
     
     footer_html = f"""
-    <div class="site-footer">
-        <div class="footer-grid">
-            <div>
-                <div class="footer-brand">
-                    <img src="https://brand.chapman.edu/wp-content/uploads/2023/04/window-icon-1.png" 
-                         alt="Chapman University" 
-                         class="footer-logo">
-                    <div>
-                        <div class="footer-title">The Dartboard Experiment</div>
-                        <div class="footer-subtitle">Built by Scott T. Switzer</div>
-                        <div class="footer-subtitle">Finance & Economics @ Chapman University</div>
+    <div style="
+        margin-top: 4rem;
+        padding: 2rem;
+        background: {c['bg_secondary']};
+        border-top: 1px solid {c['border']};
+    ">
+        <div style="
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 2rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        ">
+            <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                <img src="https://brand.chapman.edu/wp-content/uploads/2023/04/window-icon-1.png" 
+                     alt="Chapman University" 
+                     style="width: 48px; height: 48px; {'filter: invert(1);' if theme == 'dark' else ''}">
+                <div>
+                    <div style="font-family: 'IBM Plex Serif', Georgia, serif; font-size: 1.125rem; font-weight: 600; color: {c['text_primary']};">
+                        The Dartboard Experiment
+                    </div>
+                    <div style="font-size: 0.875rem; color: {c['text_secondary']};">
+                        Built by Scott T. Switzer
+                    </div>
+                    <div style="font-size: 0.875rem; color: {c['text_secondary']};">
+                        Finance & Economics @ Chapman University
                     </div>
                 </div>
             </div>
             
             <div>
-                <div class="footer-section-title">Data</div>
-                <span class="footer-link">CRSP via WRDS</span>
-                <span class="footer-link">Survivorship bias-free</span>
-                <span class="footer-link">Jan 2000 – Dec 2024</span>
+                <div style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {c['text_muted']}; margin-bottom: 0.75rem;">
+                    Data
+                </div>
+                <div style="font-size: 0.875rem; color: {c['text_secondary']}; padding: 0.25rem 0;">CRSP via WRDS</div>
+                <div style="font-size: 0.875rem; color: {c['text_secondary']}; padding: 0.25rem 0;">Survivorship bias-free</div>
+                <div style="font-size: 0.875rem; color: {c['text_secondary']}; padding: 0.25rem 0;">Jan 2000 – Dec 2024</div>
             </div>
             
             <div>
-                <div class="footer-section-title">Links</div>
-                <a href="https://github.com/Scott-Switzer/Random-Portfolio" target="_blank" class="footer-link">GitHub Repository</a>
-                <a href="https://www.linkedin.com/in/scottswitzer-/" target="_blank" class="footer-link">LinkedIn</a>
-                <a href="mailto:scott.t.switzer@gmail.com" class="footer-link">Email</a>
+                <div style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: {c['text_muted']}; margin-bottom: 0.75rem;">
+                    Links
+                </div>
+                <a href="https://github.com/Scott-Switzer/Random-Portfolio" target="_blank" 
+                   style="display: block; font-size: 0.875rem; color: {c['text_secondary']}; text-decoration: none; padding: 0.25rem 0;">
+                    GitHub Repository
+                </a>
+                <a href="https://www.linkedin.com/in/scottswitzer-/" target="_blank" 
+                   style="display: block; font-size: 0.875rem; color: {c['text_secondary']}; text-decoration: none; padding: 0.25rem 0;">
+                    LinkedIn
+                </a>
+                <a href="mailto:scott.t.switzer@gmail.com" 
+                   style="display: block; font-size: 0.875rem; color: {c['text_secondary']}; text-decoration: none; padding: 0.25rem 0;">
+                    Email
+                </a>
             </div>
-            
-            <div class="footer-disclaimer">
-                ⚠️ This is an educational tool only. Not financial advice. Past performance does not guarantee future results.
-            </div>
+        </div>
+        
+        <div style="
+            grid-column: 1 / -1;
+            text-align: center;
+            padding-top: 1.5rem;
+            margin-top: 1.5rem;
+            border-top: 1px solid {c['border']};
+            font-size: 0.75rem;
+            color: {c['text_muted']};
+        ">
+            ⚠️ This is an educational tool only. Not financial advice. Past performance does not guarantee future results.
         </div>
     </div>
     """
