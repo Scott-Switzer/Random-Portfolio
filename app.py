@@ -6,7 +6,119 @@ import datetime
 import engine as eng
 import streamlit.components.v1 as components
 import config as cfg
+from styles import apply_styles, get_theme, toggle_theme, render_footer, render_metric_card, render_section_title, render_quote_box
 
+
+st.set_page_config(
+    page_title="Dartboard Experiment | EMH Test",
+    page_icon="🎯",
+    layout="wide",
+    initial_sidebar_state="collapsed", 
+)
+
+# --- APPLY CUSTOM STYLES ---
+apply_styles()
+
+# =============================================================================
+# TOP NAVIGATION BAR
+# =============================================================================
+
+def render_top_nav(current_page):
+    """Render the top navigation bar with theme toggle."""
+    theme_icon = "🌙" if get_theme() == "light" else "☀️"
+    
+    nav_html = f"""
+    <div class="top-nav">
+        <div class="nav-brand">
+            🎯 The Dartboard Experiment
+        </div>
+        <div class="nav-tabs">
+            <span class="nav-tab {'active' if current_page == 'Home' else ''}" 
+                  onclick="window.location.href='?page=home'">🏠 Home</span>
+            <span class="nav-tab {'active' if current_page == 'Experiment' else ''}"
+                  onclick="window.location.href='?page=experiment'">🚀 Experiment</span>
+            <span class="nav-tab {'active' if current_page == 'Theory' else ''}"
+                  onclick="window.location.href='?page=theory'">📚 Theory</span>
+            <span class="nav-tab {'active' if current_page == 'About' else ''}"
+                  onclick="window.location.href='?page=about'">ℹ️ About</span>
+        </div>
+        <div class="nav-right">
+            <span class="theme-toggle" title="Toggle theme">{theme_icon}</span>
+        </div>
+    </div>
+    """
+    st.markdown(nav_html, unsafe_allow_html=True)
+
+# Since Streamlit doesn't support onclick well, we'll use a cleaner approach:
+# Use query params for navigation and a button for theme toggle
+
+# Get current page from query params
+query_params = st.query_params
+current_page = query_params.get("page", "home")
+
+# Create columns for navigation
+nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([2, 1, 1, 1, 1, 0.5])
+
+with nav_col1:
+    st.markdown("### 🎯 The Dartboard Experiment")
+
+with nav_col2:
+    if st.button("🏠 Home", use_container_width=True, type="secondary" if current_page != "home" else "primary"):
+        st.query_params["page"] = "home"
+        st.rerun()
+
+with nav_col3:
+    if st.button("🚀 Experiment", use_container_width=True, type="secondary" if current_page != "experiment" else "primary"):
+        st.query_params["page"] = "experiment"
+        st.rerun()
+
+with nav_col4:
+    if st.button("📚 Theory", use_container_width=True, type="secondary" if current_page != "theory" else "primary"):
+        st.query_params["page"] = "theory"
+        st.rerun()
+
+with nav_col5:
+    if st.button("ℹ️ About", use_container_width=True, type="secondary" if current_page != "about" else "primary"):
+        st.query_params["page"] = "about"
+        st.rerun()
+
+with nav_col6:
+    theme_icon = "🌙" if get_theme() == "light" else "☀️"
+    if st.button(theme_icon, help="Toggle dark/light mode"):
+        toggle_theme()
+        st.rerun()
+
+st.divider()
+
+# =============================================================================
+# PAGE: HOME
+# =============================================================================
+
+if current_page == "home":
+    # Hero Section
+    st.markdown("""
+    <div class="hero">
+        <div class="hero-icon">🎯</div>
+        <h1 class="hero-title">The Dartboard Experiment</h1>
+        <p class="hero-subtitle">Can random chance match indices?</p>
+        <p class="hero-description">
+            Burton Malkiel claimed a blindfolded monkey throwing darts at the 
+            financial pages could match Wall Street experts. I built a Monte Carlo 
+            simulator to test it.
+            <br><br>
+            Thousands of randomly-generated portfolios. Real CRSP data. 
+            No survivorship bias. See how randomness stacks up against the S&P 500.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # CTA Buttons
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        btn_col1, btn_col2 = st.columns(2)
+        with btn_col1:
+            if st.button("▶️ Run the Experiment", type="primary", use_container_width=True):
+                st.query_params
 
 # --- SESSION STATE ---
 if 'results' not in st.session_state:
@@ -198,23 +310,6 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
     return full_html, total_height
 
 
-st.set_page_config(
-    page_title="Dartboard Experiment | EMH Test",
-    page_icon="🎯",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'https://github.com/Scott-Switzer/Random-Portfolio/issues',
-        'Report a bug': 'https://github.com/Scott-Switzer/Random-Portfolio/issues',
-        'About': """
-        ## 🎯 The Dartboard Experiment
-        
-        Testing Burton Malkiel's claim that a blindfolded monkey could match expert stock pickers.
-        
-        Built by Scott Switzer using CRSP data from WRDS.
-        """
-    }
-)
 
 st.markdown("""
 <style>
