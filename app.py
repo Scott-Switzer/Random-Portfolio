@@ -116,13 +116,22 @@ if current_page == "home":
     </div>
     """, unsafe_allow_html=True)
     
-    # CTA Buttons
+# CTA Buttons
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         btn_col1, btn_col2 = st.columns(2)
         with btn_col1:
             if st.button("▶️ Run the Experiment", type="primary", use_container_width=True):
-                st.query_params
+                st.query_params["page"] = "experiment"
+                st.rerun()
+        with btn_col2:
+            if st.button("📚 Read the Theory", type="secondary", use_container_width=True):
+                st.query_params["page"] = "theory"
+                st.rerun()
+    
+    # Add footer on home page
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    render_footer()
 
 # --- SESSION STATE ---
 if 'results' not in st.session_state:
@@ -499,17 +508,14 @@ decision-making—particularly in **financial engineering** and **algorithmic tr
     ''')
 
     st.caption("Feel free to reach out if you'd like to discuss the project, collaborate, or chat about opportunities in quantitative finance!")
+    render_footer()
 
 
-
-# --- SIDEBAR NAV ---
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to:", ["🚀 The Experiment", "📚 Theory & Methodology","ℹ️ About"])
 
 # =========================================================
 # PAGE 1: THE EXPERIMENT (SIMULATOR)
 # =========================================================
-if page == "🚀 The Experiment":
+if current_page == "experiment":
     st.markdown('<p class="big-header">🎯 The Dartboard Experiment</p>', unsafe_allow_html=True)
     st.markdown("### Can a blindfolded monkey beat the S&P 500?")
     
@@ -805,10 +811,12 @@ if page == "🚀 The Experiment":
                 with st.expander("See full list"):
                     st.write(sample_ports[i])
 
+        render_footer()
+
 # =========================================================
 # PAGE 2: THEORY & METHODOLOGY
 # =========================================================
-elif page == "📚 Theory & Methodology":
+elif current_page == "theory":
     st.markdown('<p class="big-header">📚 The Academic Framework</p>', unsafe_allow_html=True)
 
     # =========================================================
@@ -1147,15 +1155,7 @@ elif page == "📚 Theory & Methodology":
     </div>
     """, unsafe_allow_html=True)
 
+    render_footer()
 
-    st.markdown("---")
-    st.markdown("""
-    <div style="text-align: center; color: #888; font-size: 0.8em;">
-        <p>Built with ❤️ using Streamlit | Data: CRSP via WRDS | 
-        <a href="https://github.com/Scott-Switzer/Random-Portfolio" target="_blank">GitHub</a></p>
-        <p>⚠️ This is an educational tool. Not financial advice. Past performance ≠ future results.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-elif page == "ℹ️ About":
+elif current_page == "about":
     about_page()
