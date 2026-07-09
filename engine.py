@@ -6,11 +6,36 @@ Contains all simulation logic, statistical functions, and data handling.
 from typing import Tuple, List, Optional, Dict
 import pandas as pd
 import numpy as np
-import yfinance as yf
-from scipy import stats
-from numba import jit
 import logging
+import math
 from functools import wraps
+
+try:
+    import yfinance as yf
+except Exception:  # pragma: no cover - only used when optional deps are absent
+    yf = None
+
+try:
+    from scipy import stats
+except Exception:  # pragma: no cover - fallback paths keep local smoke tests importable
+    stats = None
+
+try:
+    from numba import jit
+except Exception:  # pragma: no cover - numba is an optional accelerator
+    def jit(*jit_args, **jit_kwargs):
+        if jit_args and callable(jit_args[0]) and len(jit_args) == 1 and not jit_kwargs:
+            return jit_args[0]
+
+        def decorator(func):
+            return func
+
+        return decorator
+
+try:
+    import statsmodels.api as sm
+except Exception:  # pragma: no cover - vectorized OLS fallback is used offline
+    sm = None
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -82,12 +107,66 @@ def load_and_clean_data(
         return pd.DataFrame(), pd.DataFrame(), None, None
 
 
+def load_ff_factors(path: str) -> pd.DataFrame:
+    """
+    Load local Fama-French 3-factor monthly data.
+
+    The source file is expected to use Date values in YYYYMM format and factor
+    values in percentages. The returned DataFrame uses monthly PeriodIndex
+    values and decimal factor returns.
+    """
+    ff = pd.read_csv(path)
+    required_cols = ["Date", "Mkt-RF", "SMB", "HML", "RF"]
+    missing = [col for col in required_cols if col not in ff.columns]
+    if missing:
+        raise ValueError(f"Missing Fama-French columns: {missing}")
+
+    ff = ff[required_cols].copy()
+    ff["Date"] = pd.to_datetime(ff["Date"].astype(str), format="%Y%m").dt.to_period("M")
+    factor_cols = ["Mkt-RF", "SMB", "HML", "RF"]
+    ff[factor_cols] = ff[factor_cols].apply(pd.to_numeric, errors="coerce") / 100.0
+    ff = ff.dropna(subset=factor_cols).set_index("Date").sort_index()
+    ff.index.name = "Date"
+    return ff[factor_cols]
+
+
+def _period_index_for_returns(index: pd.Index) -> pd.PeriodIndex:
+    """Convert a return matrix index to monthly periods for factor alignment."""
+    if isinstance(index, pd.PeriodIndex):
+        return index.asfreq("M")
+    return pd.DatetimeIndex(index).to_period("M")
+
+
+def _align_ff_to_return_matrix(
+    ret_matrix: pd.DataFrame,
+    cap_matrix: pd.DataFrame,
+    ff: pd.DataFrame,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    periods = _period_index_for_returns(ret_matrix.index)
+    ff_aligned = ff.reindex(periods)
+    factor_cols = ["Mkt-RF", "SMB", "HML", "RF"]
+    valid = ff_aligned[factor_cols].notna().all(axis=1).to_numpy()
+
+    if not valid.any():
+        raise ValueError("No overlapping months between returns and Fama-French factors.")
+
+    ret_aligned = ret_matrix.iloc[valid].copy()
+    cap_aligned = cap_matrix.iloc[valid].copy()
+    ff_aligned = ff_aligned.iloc[valid].copy()
+    ff_aligned.index = periods[valid]
+    return ret_aligned, cap_aligned, ff_aligned
+
+
 # =========================================================
 # RISK-FREE RATE
 # =========================================================
 @handle_errors(default_return=0.03)
 def get_dynamic_rf(start_date, end_date) -> float:
     """Fetches avg 13-Week T-Bill yield for period."""
+    if yf is None:
+        logger.warning("ENGINE WARNING: yfinance unavailable. Defaulting to 3%.")
+        return 0.03
+
     s_str = pd.to_datetime(start_date).strftime('%Y-%m-%d')
     e_str = pd.to_datetime(end_date).strftime('%Y-%m-%d')
     
@@ -162,6 +241,38 @@ def calculate_sharpe(monthly_returns, rf_rate: float) -> float:
     return calculate_sharpe_numba(monthly_returns, rf_rate)
 
 
+def calculate_sharpe_vectorized(monthly_returns: np.ndarray, rf_rate: float) -> np.ndarray:
+    """
+    Calculate annualized Sharpe ratios for a matrix of monthly returns.
+
+    Args:
+        monthly_returns: Array shaped (months, simulations)
+        rf_rate: Annual risk-free rate
+
+    Returns:
+        One Sharpe ratio per simulation.
+    """
+    returns = np.asarray(monthly_returns, dtype=np.float64)
+    if returns.ndim == 1:
+        returns = returns.reshape(-1, 1)
+
+    n_months = returns.shape[0]
+    if n_months < 6:
+        return np.zeros(returns.shape[1], dtype=np.float64)
+
+    returns = np.where(np.isfinite(returns), returns, 0.0)
+    growth = np.prod(1.0 + returns, axis=0)
+    ann_ret = np.where(growth > 0, np.power(growth, 12.0 / n_months) - 1.0, -1.0)
+    ann_vol = np.std(returns, axis=0, ddof=1) * np.sqrt(12.0)
+
+    return np.divide(
+        ann_ret - rf_rate,
+        ann_vol,
+        out=np.zeros_like(ann_ret, dtype=np.float64),
+        where=ann_vol > 0,
+    )
+
+
 # =========================================================
 # BENCHMARK STATS
 # =========================================================
@@ -179,6 +290,10 @@ def get_benchmark_stats(ticker: str, start_date, end_date, rf_rate: float) -> Tu
     Returns:
         Tuple of (sharpe_ratio, annualized_return)
     """
+    if yf is None:
+        logger.warning("ENGINE WARNING: yfinance unavailable. Returning empty benchmark stats.")
+        return 0.0, 0.0
+
     s_str = pd.to_datetime(start_date).strftime('%Y-%m-%d')
     e_str = pd.to_datetime(end_date).strftime('%Y-%m-%d')
     
@@ -219,9 +334,9 @@ def run_monte_carlo(
     n_stocks: int, 
     rf_rate: float, 
     progress_callback=None
-) -> Tuple[np.ndarray, np.ndarray, List[List[str]]]:
+) -> Tuple[np.ndarray, np.ndarray, List[List[str]], np.ndarray, np.ndarray]:
     """
-    Core Monte Carlo Simulation Loop.
+    Core vectorized Monte Carlo Simulation.
     
     Args:
         ret_matrix: DataFrame of stock returns (dates x tickers)
@@ -232,59 +347,283 @@ def run_monte_carlo(
         progress_callback: Optional callback function for progress updates
     
     Returns:
-        Tuple of (equal_weight_sharpes, cap_weight_sharpes, sample_portfolios)
+        Tuple of (
+            equal_weight_sharpes,
+            cap_weight_sharpes,
+            sample_portfolios,
+            equal_weight_monthly_return_series,
+            cap_weight_monthly_return_series,
+        )
     """
-    results_ew = np.zeros(n_sims)
-    results_cw = np.zeros(n_sims)
-    sample_portfolios = []
-    
-    ret_vals = ret_matrix.values
-    cap_lagged_vals = cap_matrix.shift(1).fillna(0).values
-    
+    if n_sims <= 0:
+        empty_series = np.empty((len(ret_matrix), 0), dtype=np.float64)
+        return (
+            np.empty(0, dtype=np.float64),
+            np.empty(0, dtype=np.float64),
+            [],
+            empty_series,
+            empty_series.copy(),
+        )
+
+    ret_vals = ret_matrix.to_numpy(dtype=np.float64, copy=False)
+    cap_lagged_vals = cap_matrix.shift(1).fillna(0).to_numpy(dtype=np.float64, copy=False)
+
     tickers = ret_matrix.columns.values
     n_tickers = ret_vals.shape[1]
-    
-    # Pre-generate all random indices for consistency
-    all_idxs = np.array([
-        np.random.choice(n_tickers, n_stocks, replace=False) 
-        for _ in range(n_sims)
-    ])
-    
-    for i in range(n_sims):
-        idxs = all_idxs[i]
-        
-        # Store first 5 portfolios for transparency
-        if i < 5:
-            sample_portfolios.append(tickers[idxs].tolist())
-            
-        r_subset = ret_vals[:, idxs]
-        c_lagged_subset = cap_lagged_vals[:, idxs]
-        
-        # A) Equal Weighted
-        ew_port_ret = np.mean(r_subset, axis=1)
-        results_ew[i] = calculate_sharpe_numba(ew_port_ret, rf_rate)
-        
-        # B) Cap Weighted
-        row_sums = np.sum(c_lagged_subset, axis=1)
-        weights = np.zeros_like(c_lagged_subset)
-        mask = row_sums > 0
-        weights[mask] = c_lagged_subset[mask] / row_sums[mask, None]
-        
-        cw_port_ret = np.sum(weights * r_subset, axis=1)
-        results_cw[i] = calculate_sharpe_numba(cw_port_ret, rf_rate)
-        
-        if progress_callback and i % 25 == 0:
-            progress_callback(i / n_sims)
-            
+
+    if n_stocks <= 0:
+        raise ValueError("n_stocks must be positive.")
+    if n_stocks > n_tickers:
+        raise ValueError(f"n_stocks ({n_stocks}) cannot exceed available tickers ({n_tickers}).")
+
+    if progress_callback:
+        progress_callback(0.05)
+
+    # Generate one without-replacement sample per simulation, fully vectorized.
+    random_scores = np.random.random((n_sims, n_tickers))
+    idx = np.argpartition(random_scores, kth=n_stocks - 1, axis=1)[:, :n_stocks]
+
+    sample_portfolios = [tickers[row].tolist() for row in idx[:5]]
+
+    if progress_callback:
+        progress_callback(0.25)
+
+    r = ret_vals[:, idx]
+    ew_series = r.mean(axis=2)
+
+    if progress_callback:
+        progress_callback(0.55)
+
+    lagged_cap = cap_lagged_vals[:, idx]
+    denom = lagged_cap.sum(axis=2, keepdims=True)
+    weights = np.divide(
+        lagged_cap,
+        denom,
+        out=np.zeros_like(lagged_cap, dtype=np.float64),
+        where=denom > 0,
+    )
+    cw_series = (weights * r).sum(axis=2)
+
+    if progress_callback:
+        progress_callback(0.80)
+
+    results_ew = calculate_sharpe_vectorized(ew_series, rf_rate)
+    results_cw = calculate_sharpe_vectorized(cw_series, rf_rate)
+
     if progress_callback:
         progress_callback(1.0)
-    
-    return results_ew, results_cw, sample_portfolios
+
+    return results_ew, results_cw, sample_portfolios, ew_series, cw_series
+
+
+# =========================================================
+# FAMA-FRENCH 3-FACTOR ALPHA
+# =========================================================
+def _prepare_ff_inputs(
+    port_returns_monthly: np.ndarray,
+    ff: pd.DataFrame,
+) -> Tuple[np.ndarray, pd.DataFrame]:
+    returns = np.asarray(port_returns_monthly, dtype=np.float64).reshape(-1)
+    factor_cols = ["Mkt-RF", "SMB", "HML", "RF"]
+    factors = ff[factor_cols].copy()
+
+    if len(factors) != len(returns):
+        if len(factors) < len(returns):
+            raise ValueError("Fama-French factor data is shorter than the return series.")
+        # Standalone ndarray calls carry no dates, so fall back to the most
+        # recent matching factor window. Date-aware callers should pre-align ff.
+        factors = factors.iloc[-len(returns):].copy()
+
+    valid = np.isfinite(returns) & np.isfinite(factors.to_numpy(dtype=np.float64)).all(axis=1)
+    if valid.sum() <= 4:
+        raise ValueError("Not enough valid monthly observations for Fama-French regression.")
+
+    return returns[valid], factors.iloc[valid]
+
+
+def _ols_alpha_batch(
+    return_matrix: np.ndarray,
+    factors: pd.DataFrame,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Vectorized OLS for many portfolio return series against FF3 factors.
+
+    Returns annualized alpha, market beta, R-squared, and alpha t-stat arrays.
+    """
+    y = np.asarray(return_matrix, dtype=np.float64)
+    if y.ndim == 1:
+        y = y.reshape(-1, 1)
+
+    factor_cols = ["Mkt-RF", "SMB", "HML", "RF"]
+    factor_values = factors[factor_cols].to_numpy(dtype=np.float64)
+    valid_rows = np.isfinite(factor_values).all(axis=1) & np.isfinite(y).all(axis=1)
+
+    y = y[valid_rows]
+    factor_values = factor_values[valid_rows]
+
+    n_obs = y.shape[0]
+    n_params = 4
+    if n_obs <= n_params:
+        raise ValueError("Not enough valid monthly observations for Fama-French regression.")
+
+    excess_y = y - factor_values[:, 3:4]
+    x = np.column_stack([np.ones(n_obs), factor_values[:, :3]])
+
+    xtx_inv = np.linalg.pinv(x.T @ x)
+    betas = xtx_inv @ x.T @ excess_y
+    fitted = x @ betas
+    residuals = excess_y - fitted
+
+    sse = np.sum(residuals * residuals, axis=0)
+    centered = excess_y - excess_y.mean(axis=0, keepdims=True)
+    tss = np.sum(centered * centered, axis=0)
+    r2 = np.ones_like(sse)
+    r2 = np.subtract(
+        1.0,
+        np.divide(sse, tss, out=np.ones_like(sse), where=tss > 0),
+        out=r2,
+    )
+
+    dof = max(n_obs - n_params, 1)
+    sigma2 = sse / dof
+    alpha_se = np.sqrt(np.maximum(sigma2 * xtx_inv[0, 0], 0.0))
+    alpha_t = np.divide(
+        betas[0],
+        alpha_se,
+        out=np.zeros_like(alpha_se),
+        where=alpha_se > 0,
+    )
+
+    alpha_annualized = betas[0] * 12.0
+    beta_mkt = betas[1]
+    return alpha_annualized, beta_mkt, r2, alpha_t
+
+
+def fama_french_alpha(
+    port_returns_monthly: np.ndarray,
+    ff: pd.DataFrame,
+) -> Tuple[float, float, float]:
+    """
+    Estimate annualized Fama-French alpha for one monthly return series.
+
+    Regresses (portfolio return - RF) on [Mkt-RF, SMB, HML]. statsmodels OLS is
+    used when installed; the numpy fallback exists for offline smoke tests.
+    """
+    returns, factors = _prepare_ff_inputs(port_returns_monthly, ff)
+
+    if sm is not None:
+        try:
+            y = returns - factors["RF"].to_numpy(dtype=np.float64)
+            x = sm.add_constant(factors[["Mkt-RF", "SMB", "HML"]], has_constant="add")
+            result = sm.OLS(y, x).fit()
+            return (
+                float(result.params.iloc[0] * 12.0),
+                float(result.params.iloc[1]),
+                float(result.rsquared),
+            )
+        except Exception as exc:  # pragma: no cover - protects mixed local envs
+            logger.warning("statsmodels OLS failed; using numpy OLS fallback: %s", exc)
+
+    alpha, beta_mkt, r2, _ = _ols_alpha_batch(returns, factors)
+    return float(alpha[0]), float(beta_mkt[0]), float(r2[0])
+
+
+def _summarize_alpha_distribution(
+    alpha_values: np.ndarray,
+    alpha_tstats: np.ndarray,
+    beta_values: np.ndarray,
+    r2_values: np.ndarray,
+) -> Dict:
+    finite = np.isfinite(alpha_values)
+    alpha_values = alpha_values[finite]
+    alpha_tstats = alpha_tstats[finite]
+    beta_values = beta_values[finite]
+    r2_values = r2_values[finite]
+
+    if len(alpha_values) == 0:
+        return {
+            "n": 0,
+            "mean": np.nan,
+            "median": np.nan,
+            "p5": np.nan,
+            "p95": np.nan,
+            "pct_sig_positive": np.nan,
+            "mean_beta_mkt": np.nan,
+            "mean_r2": np.nan,
+        }
+
+    percentiles = np.percentile(alpha_values, [5, 50, 95])
+    return {
+        "n": int(len(alpha_values)),
+        "mean": float(np.mean(alpha_values)),
+        "median": float(percentiles[1]),
+        "p5": float(percentiles[0]),
+        "p95": float(percentiles[2]),
+        "pct_sig_positive": float(np.mean(alpha_tstats > 1.96) * 100.0),
+        "mean_beta_mkt": float(np.mean(beta_values)),
+        "mean_r2": float(np.mean(r2_values)),
+    }
+
+
+def run_ff_analysis(
+    ret_matrix: pd.DataFrame,
+    cap_matrix: pd.DataFrame,
+    n_sims: int,
+    n_stocks: int,
+    rf_rate: float,
+    ff: pd.DataFrame,
+    chunk_size: int = 500,
+) -> Dict[str, Dict]:
+    """
+    Run batched Monte Carlo portfolios and summarize FF3 alpha distributions.
+
+    Returns separate equal-weight and cap-weight alpha summaries.
+    """
+    ret_aligned, cap_aligned, ff_aligned = _align_ff_to_return_matrix(ret_matrix, cap_matrix, ff)
+    chunk_size = max(1, int(chunk_size))
+
+    buckets = {
+        "ew": {"alpha": [], "t": [], "beta": [], "r2": []},
+        "cw": {"alpha": [], "t": [], "beta": [], "r2": []},
+    }
+
+    for start in range(0, n_sims, chunk_size):
+        current_sims = min(chunk_size, n_sims - start)
+        _, _, _, ew_series, cw_series = run_monte_carlo(
+            ret_aligned,
+            cap_aligned,
+            current_sims,
+            n_stocks,
+            rf_rate,
+            progress_callback=None,
+        )
+
+        for key, series in (("ew", ew_series), ("cw", cw_series)):
+            alpha, beta_mkt, r2, alpha_t = _ols_alpha_batch(series, ff_aligned)
+            buckets[key]["alpha"].append(alpha)
+            buckets[key]["t"].append(alpha_t)
+            buckets[key]["beta"].append(beta_mkt)
+            buckets[key]["r2"].append(r2)
+
+    summaries = {}
+    for key, values in buckets.items():
+        summaries[key] = _summarize_alpha_distribution(
+            np.concatenate(values["alpha"]) if values["alpha"] else np.empty(0),
+            np.concatenate(values["t"]) if values["t"] else np.empty(0),
+            np.concatenate(values["beta"]) if values["beta"] else np.empty(0),
+            np.concatenate(values["r2"]) if values["r2"] else np.empty(0),
+        )
+
+    return summaries
 
 
 # =========================================================
 # STATISTICAL FUNCTIONS
 # =========================================================
+def _normal_two_sided_pvalue(test_stat: float) -> float:
+    return float(math.erfc(abs(float(test_stat)) / math.sqrt(2.0)))
+
+
 def compute_statistics(results: np.ndarray) -> Dict:
     """
     Compute comprehensive statistics for simulation results.
@@ -302,7 +641,13 @@ def compute_statistics(results: np.ndarray) -> Dict:
     se = std / np.sqrt(n)
     
     # 95% Confidence Interval
-    ci_95 = stats.t.interval(0.95, df=n-1, loc=mean, scale=se)
+    if stats is not None and n > 1:
+        try:
+            ci_95 = stats.t.interval(0.95, df=n-1, loc=mean, scale=se)
+        except Exception:
+            ci_95 = (mean - 1.96 * se, mean + 1.96 * se)
+    else:
+        ci_95 = (mean - 1.96 * se, mean + 1.96 * se)
     
     # Percentiles
     percentiles = np.percentile(results, [5, 25, 50, 75, 95])
@@ -332,7 +677,20 @@ def test_ew_vs_cw(res_ew: np.ndarray, res_cw: np.ndarray) -> Dict:
     Returns:
         Dictionary with t-statistic, p-value, Cohen's d, and significance flag
     """
-    t_stat, p_value = stats.ttest_rel(res_ew, res_cw)
+    if stats is not None:
+        try:
+            t_stat, p_value = stats.ttest_rel(res_ew, res_cw)
+        except Exception:
+            t_stat, p_value = None, None
+    else:
+        t_stat, p_value = None, None
+
+    if t_stat is None or p_value is None:
+        diff = np.asarray(res_ew, dtype=np.float64) - np.asarray(res_cw, dtype=np.float64)
+        se = np.std(diff, ddof=1) / np.sqrt(len(diff)) if len(diff) > 1 else 0.0
+        t_stat = float(np.mean(diff) / se) if se > 0 else 0.0
+        p_value = _normal_two_sided_pvalue(t_stat)
+
     cohens_d = (np.mean(res_ew) - np.mean(res_cw)) / np.sqrt(
         (np.std(res_ew)**2 + np.std(res_cw)**2) / 2
     )
@@ -355,7 +713,20 @@ def test_vs_benchmark(results: np.ndarray, benchmark_sharpe: float) -> Dict:
     Returns:
         Dictionary with t-statistic, p-value, and significance flag
     """
-    t_stat, p_value = stats.ttest_1samp(results, benchmark_sharpe)
+    if stats is not None:
+        try:
+            t_stat, p_value = stats.ttest_1samp(results, benchmark_sharpe)
+        except Exception:
+            t_stat, p_value = None, None
+    else:
+        t_stat, p_value = None, None
+
+    if t_stat is None or p_value is None:
+        results = np.asarray(results, dtype=np.float64)
+        se = np.std(results, ddof=1) / np.sqrt(len(results)) if len(results) > 1 else 0.0
+        t_stat = float((np.mean(results) - benchmark_sharpe) / se) if se > 0 else 0.0
+        p_value = _normal_two_sided_pvalue(t_stat)
+
     return {
         't_stat': t_stat,
         'p_value': p_value,
@@ -420,7 +791,7 @@ def run_rolling_analysis(
         sub_ret = ret_matrix.iloc[start_idx:end_idx]
         sub_cap = cap_matrix.iloc[start_idx:end_idx]
         
-        res_ew, res_cw, _ = run_monte_carlo(sub_ret, sub_cap, n_sims, n_stocks, rf_rate, None)
+        res_ew, res_cw, _, _, _ = run_monte_carlo(sub_ret, sub_cap, n_sims, n_stocks, rf_rate, None)
         
         results.append({
             'start_date': dates[start_idx],

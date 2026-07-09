@@ -631,7 +631,7 @@ if current_page == "experiment":
                 eta = (elapsed / pct) * (1 - pct)
                 status_text.text(f"Running... {pct*100:.0f}% complete | ETA: {eta:.0f}s remaining")
 
-        res_ew, res_cw, sample_ports = eng.run_monte_carlo(
+        res_ew, res_cw, sample_ports, _ew_series, _cw_series = eng.run_monte_carlo(
             sub_ret, sub_cap, n_sims, n_stocks, rf, progress_with_eta
         )
         status_text.text("Complete!")
