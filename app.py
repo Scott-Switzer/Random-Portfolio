@@ -60,36 +60,42 @@ def render_top_nav(current_page):
 query_params = st.query_params
 current_page = query_params.get("page", "home")
 
+# Enforce persistence for sidebar interactions
+if "page" not in query_params:
+    st.query_params["page"] = current_page
+
 # Create columns for navigation
-nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([2, 1, 1, 1, 1, 0.5])
+nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([2, 1, 1, 1, 1, 0.8])
 
 with nav_col1:
-    st.markdown("### 🎯 The Dartboard Experiment")
+    st.markdown("**Dartboard**", help="The Dartboard Experiment - Testing the Random Walk Hypothesis")
 
 with nav_col2:
-    if st.button("🏠 Home", use_container_width=True, type="secondary" if current_page != "home" else "primary"):
+    if st.button("Home", use_container_width=True, type="secondary" if current_page != "home" else "primary"):
         st.query_params["page"] = "home"
         st.rerun()
 
 with nav_col3:
-    if st.button("🚀 Experiment", use_container_width=True, type="secondary" if current_page != "experiment" else "primary"):
+    if st.button("Experiment", use_container_width=True, type="secondary" if current_page != "experiment" else "primary"):
         st.query_params["page"] = "experiment"
         st.rerun()
 
 with nav_col4:
-    if st.button("📚 Theory", use_container_width=True, type="secondary" if current_page != "theory" else "primary"):
+    if st.button("Theory", use_container_width=True, type="secondary" if current_page != "theory" else "primary"):
         st.query_params["page"] = "theory"
         st.rerun()
 
 with nav_col5:
-    if st.button("ℹ️ About", use_container_width=True, type="secondary" if current_page != "about" else "primary"):
+    if st.button("About", use_container_width=True, type="secondary" if current_page != "about" else "primary"):
         st.query_params["page"] = "about"
         st.rerun()
 
 with nav_col6:
-    theme_icon = "🌙" if get_theme() == "light" else "☀️"
-    if st.button(theme_icon, help="Toggle dark/light mode"):
+    theme_label = "Dark" if get_theme() == "light" else "Light"
+    if st.button(theme_label, help="Toggle dark/light mode"):
         toggle_theme()
+        # Explicitly preserve current page
+        st.query_params["page"] = current_page
         st.rerun()
 
 st.divider()
@@ -99,39 +105,54 @@ st.divider()
 # =============================================================================
 
 if current_page == "home":
-    # Hero Section
-    st.markdown("""
+    # Hero Section with animations
+    c = get_colors()
+    st.markdown(f"""
     <div class="hero-container">
-        <div class="hero-icon">🎯</div>
+        <div class="hero-icon-graphic"></div>
         <h1 class="hero-title">The Dartboard Experiment</h1>
-        <p class="hero-subtitle">Can random chance match indices?</p>
+        <p class="hero-subtitle">Can random chance beat Wall Street?</p>
         <p class="hero-description">
-            Burton Malkiel claimed a blindfolded monkey throwing darts at the 
-            financial pages could match Wall Street experts. I built a Monte Carlo 
-            simulator to test it.
-            <br><br>
-            Thousands of randomly-generated portfolios. Real CRSP data. 
-            No survivorship bias. See how randomness stacks up against the S&P 500.
+            Burton Malkiel famously claimed that a blindfolded monkey throwing darts 
+            could match the experts. This Monte Carlo simulator puts that theory to the test 
+            with <strong>real market data</strong>, <strong>no survivorship bias</strong>, 
+            and <strong>thousands of simulations</strong>.
         </p>
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <span class="hero-stat-value">5,000+</span>
+                <span class="hero-stat-label">Simulations</span>
+            </div>
+            <div class="hero-stat">
+                <span class="hero-stat-value">25 Years</span>
+                <span class="hero-stat-label">Of Data</span>
+            </div>
+            <div class="hero-stat">
+                <span class="hero-stat-value">4,800+</span>
+                <span class="hero-stat-label">Stocks Tested</span>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
-# CTA Buttons
+    # CTA Buttons with better spacing
+    st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         btn_col1, btn_col2 = st.columns(2)
         with btn_col1:
-            if st.button("▶️ Run the Experiment", type="primary", use_container_width=True):
+            if st.button("Run the Experiment", type="primary", use_container_width=True):
                 st.query_params["page"] = "experiment"
                 st.rerun()
         with btn_col2:
-            if st.button("📚 Read the Theory", type="secondary", use_container_width=True):
+            if st.button("Read the Theory", type="secondary", use_container_width=True):
                 st.query_params["page"] = "theory"
                 st.rerun()
     
     # Add footer on home page
     st.markdown("<br><br>", unsafe_allow_html=True)
     render_footer()
+
 
 # --- SESSION STATE ---
 if 'results' not in st.session_state:
@@ -267,7 +288,7 @@ def describe_simulation_distribution(res_ew, res_cw, spy_sh=None, iwm_sh=None, r
       </ul>
 
       <p><b>Equal-weight vs cap-weight (in this run):</b> The equal-weight portfolio beats the cap-weight proxy in
-      <b>{pair_win:.0f}%</b> of paired simulations. This is not "skill" — it reflects systematic differences in exposure (often size + rebalancing effects).</p>
+      <b>{pair_win:.0f}%</b> of paired simulations. This is not "skill" - it reflects systematic differences in exposure (often size + rebalancing effects).</p>
     </div>
     """
 
@@ -320,7 +341,7 @@ ret_matrix, cap_matrix, min_date, max_date = get_data()
 
 def about_page():
     # Sidebar navigation for About page
-    st.sidebar.markdown("### ℹ️ About")
+    st.sidebar.markdown("### About")
     st.sidebar.markdown("---")
     
     about_sections = [
@@ -353,9 +374,9 @@ def about_page():
     with col2:
         btn1, btn2 = st.columns(2)
         with btn1:
-            st.link_button("💼 LinkedIn", "https://www.linkedin.com/in/scottswitzer-/", use_container_width=True)
+            st.link_button("LinkedIn", "https://www.linkedin.com/in/scottswitzer-/", use_container_width=True)
         with btn2:
-            st.link_button("💻 GitHub", "https://github.com/Scott-Switzer", use_container_width=True)
+            st.link_button("GitHub", "https://github.com/Scott-Switzer", use_container_width=True)
 
     st.divider()
 
@@ -367,7 +388,7 @@ def about_page():
     <div class="quote-box">
         <p>"A blindfolded monkey throwing darts at a newspaper's financial pages could select 
         a portfolio that would do just as well as one carefully selected by experts."</p>
-        <div class="attribution">— Burton Malkiel, <em>A Random Walk Down Wall Street</em> (1973)</div>
+        <div class="attribution">- Burton Malkiel, <em>A Random Walk Down Wall Street</em> (1973)</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -380,19 +401,22 @@ beat the market**.
     
     st.markdown("**Why I Built This:**")
     st.markdown("""
-- To empirically test a foundational theory in finance using real market data
-- To practice building end-to-end data science projects with financial applications
-- To deploy a live experiment that continuously tracks random vs. strategic portfolio performance
-- To bridge my coursework in econometrics and quantitative methods with hands-on application
-    """)
+    To empirically test a foundational theory in finance using real market data.
+    <br>
+    To practice building end-to-end data science projects with financial applications.
+    <br>
+    To deploy a live experiment that continuously tracks random vs. strategic portfolio performance.
+    <br>
+    To bridge my coursework in econometrics and quantitative methods with hands-on application.
+    """, unsafe_allow_html=True)
 
-    with st.expander("🎓 What I Learned Building This Project"):
+    with st.expander("What I Learned Building This Project"):
         st.markdown("""
-- Full-stack deployment of a financial analytics application
-- Working with financial APIs and real-time market data pipelines
-- Statistical analysis of portfolio performance and benchmark comparison
-- Cloud deployment and automation for continuous data collection
-- The practical challenges of turning academic theory into a working experiment
+Full-stack deployment of a financial analytics application  
+Working with financial APIs and real-time market data pipelines  
+Statistical analysis of portfolio performance and benchmark comparison  
+Cloud deployment and automation for continuous data collection  
+The practical challenges of turning academic theory into a working experiment
         """)
 
     st.divider()
@@ -403,28 +427,28 @@ beat the market**.
     st.markdown("""
 **Chapman University** — Argyros College of Business & Economics  
 *B.A. Economics & B.S. Business Administration (Finance) | Minor in Analytics*  
-📅 Expected Graduation: **May 2027**
+Expected Graduation: **May 2027**
     """)
 
-    with st.expander("📚 Relevant Coursework"):
+    with st.expander("Relevant Coursework"):
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("""
-**Quantitative & Data:**
-- Econometrics
-- Introduction to Data Science
-- Statistical Models in Business
-- Foundations of Business Analytics
-- Computer Science I
+**Quantitative & Data:**  
+Econometrics  
+Introduction to Data Science  
+Statistical Models in Business  
+Foundations of Business Analytics  
+Computer Science I
             """)
         with col2:
             st.markdown("""
-**Finance & Economics:**
-- Investments
-- Intermediate Financial Management
-- Quantitative Methods in Finance
-- Managerial Economics
-- Intermediate Micro/Macro Theory
+**Finance & Economics:**  
+Investments  
+Intermediate Financial Management  
+Quantitative Methods in Finance  
+Managerial Economics  
+Intermediate Micro/Macro Theory
             """)
 
     st.divider()
@@ -481,11 +505,11 @@ decision-making—particularly in **financial engineering** and **algorithmic tr
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("🃏 **Bridge** player")
+        st.markdown("Bridge player")
     with col2:
-        st.markdown("🏀 **Basketball** enthusiast")
+        st.markdown("Basketball enthusiast")
     with col3:
-        st.markdown("📈 **Quant strategies** explorer")
+        st.markdown("Quant strategies explorer")
 
     st.divider()
 
@@ -493,9 +517,9 @@ decision-making—particularly in **financial engineering** and **algorithmic tr
     st.markdown(f'<div class="section-header">Contact</div>', unsafe_allow_html=True)
 
     st.markdown("""
-📧 **Email:** scott.t.switzer@gmail.com  
-💼 **LinkedIn:** [linkedin.com/in/scottswitzer-/](https://www.linkedin.com/in/scottswitzer-/)  
-💻 **GitHub:** [github.com/Scott-Switzer](https://github.com/Scott-Switzer)
+**Email:** scott.t.switzer@gmail.com  
+**LinkedIn:** [linkedin.com/in/scottswitzer-/](https://www.linkedin.com/in/scottswitzer-/)  
+**GitHub:** [github.com/Scott-Switzer](https://github.com/Scott-Switzer)
     """)
 
     st.caption("Feel free to reach out if you'd like to discuss the project, collaborate, or chat about opportunities in quantitative finance!")
@@ -508,28 +532,37 @@ decision-making—particularly in **financial engineering** and **algorithmic tr
 # PAGE 1: THE EXPERIMENT (SIMULATOR)
 # =========================================================
 if current_page == "experiment":
-    st.markdown('<p class="big-header">🎯 The Dartboard Experiment</p>', unsafe_allow_html=True)
+    # Sidebar header with better structure
+    st.sidebar.markdown("### Experiment Settings")
+    st.sidebar.markdown("Configure your Monte Carlo simulation parameters below:")
+    st.sidebar.divider()
+    
+    
+    # Page header - cleaner without duplicate branding
     st.markdown("### Can a blindfolded monkey beat the S&P 500?")
+    st.info("⬅️ **Configure the simulation in the sidebar**, then click Run.")
     
     # --- THEORY EXPANDER (NEW) ---
-    with st.expander("📖 Why are we doing this? (The Theory)", expanded=False):
+    with st.expander("Why are we doing this? (The Theory)", expanded=False):
         st.markdown("""
         **1. The Efficient Market Hypothesis (EMH):**
-        Proposed by **Eugene Fama** (Nobel Laureate), this theory suggests that asset prices reflect all available information. Therefore, it's impossible to consistently "beat the market" on a risk-adjusted basis because market price movements are random.
-        
+        Proposed by **Eugene Fama**, this theory suggests that asset prices reflect all available information. Therefore, it's impossible to consistently "beat the market" on a risk-adjusted basis because market price movements are random.
+        <br><br>
         **2. A Random Walk Down Wall Street:**
         In 1973, **Burton Malkiel** famously claimed:
-        > "A blindfolded monkey throwing darts at a newspaper's financial pages could select a portfolio that would do just as well as one carefully selected by experts."
-        
+        <br>
+        "A blindfolded monkey throwing darts at a newspaper's financial pages could select a portfolio that would do just as well as one carefully selected by experts."
+        <br><br>
         **The Goal:** We are testing Malkiel's claim mathematically. We will throw thousands of "darts" (random portfolios) and compare them against the **S&P 500 (SPY)** and **Russell 2000 (IWM)**.
-        """)
+        """, unsafe_allow_html=True)
 
     if ret_matrix.empty:
         st.error("Data not loaded.")
         st.stop()
 
     # --- CONTROLS ---
-    st.sidebar.header("🧪 Experiment Settings")
+    st.sidebar.markdown("#### Time Period")
+
 
     date_mode = st.sidebar.radio("Time Period", ["Preset Eras", "Custom Range"])
 
@@ -561,13 +594,16 @@ if current_page == "experiment":
         e = datetime.datetime.combine(e, datetime.time())
     
 
-    n_stocks = st.sidebar.slider("Darts per Portfolio", cfg.MIN_STOCKS, cfg.MAX_STOCKS, cfg.DEFAULT_N_STOCKS)
-    n_sims = st.sidebar.slider("Simulations", cfg.MIN_SIMS, cfg.MAX_SIMS, cfg.DEFAULT_N_SIMS)
+    st.sidebar.markdown("#### Portfolio Configuration")
+    n_stocks = st.sidebar.slider("Darts per Portfolio", cfg.MIN_STOCKS, cfg.MAX_STOCKS, cfg.DEFAULT_N_STOCKS, 
+                                 help="How many random stocks in each portfolio?")
+    n_sims = st.sidebar.slider("Number of Simulations", cfg.MIN_SIMS, cfg.MAX_SIMS, cfg.DEFAULT_N_SIMS,
+                               help="More simulations = more accurate distribution")
 
     # --- EXECUTION ---
     current_params = (regime, n_stocks, n_sims)
 
-    if st.button("▶️ Run the Experiment", type="primary"):
+    if st.button("Run the Experiment", type="primary"):
         sub_ret = ret_matrix.loc[str(s):str(e)]
         sub_cap = cap_matrix.loc[str(s):str(e)]
         
@@ -598,7 +634,7 @@ if current_page == "experiment":
         res_ew, res_cw, sample_ports = eng.run_monte_carlo(
             sub_ret, sub_cap, n_sims, n_stocks, rf, progress_with_eta
         )
-        status_text.text("✅ Complete!")
+        status_text.text("Complete!")
 
         # Calculate win rate BEFORE using it
         win_vs_spy = np.mean(res_ew > spy_sh) * 100
@@ -608,10 +644,10 @@ if current_page == "experiment":
 
         # Row 1: Main Metrics
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("🎯 Dartboard (EW)", f"{np.mean(res_ew):.2f}", f"Win Rate: {win_vs_spy:.0f}%")
-        col2.metric("📊 Index Proxy (CW)", f"{np.mean(res_cw):.2f}")
-        col3.metric("🏆 S&P 500", f"{spy_sh:.2f}", delta_color="off")
-        col4.metric("📈 Russell 2000", f"{iwm_sh:.2f}", delta_color="off")
+        col1.metric("Dartboard (EW)", f"{np.mean(res_ew):.2f}", f"Win Rate: {win_vs_spy:.0f}%")
+        col2.metric("Index Proxy (CW)", f"{np.mean(res_cw):.2f}")
+        col3.metric("S&P 500", f"{spy_sh:.2f}", delta_color="off")
+        col4.metric("Russell 2000", f"{iwm_sh:.2f}", delta_color="off")
 
         # Row 2: Additional Stats
         st.markdown("##### Detailed Statistics")
@@ -661,13 +697,13 @@ if current_page == "experiment":
         st.dataframe(comparison_df, use_container_width=True, hide_index=True)
 
         # Add after metrics:
-        st.subheader("📈 Statistical Significance")
+        st.subheader("Statistical Significance")
 
         sig_test = eng.test_ew_vs_cw(res_ew, res_cw)
         if sig_test['significant']:
-            st.success(f"✅ EW vs CW difference is **statistically significant** (p = {sig_test['p_value']:.4f}, Cohen's d = {sig_test['cohens_d']:.2f})")
+            st.success(f"EW vs CW difference is **statistically significant** (p = {sig_test['p_value']:.4f}, Cohen's d = {sig_test['cohens_d']:.2f})")
         else:
-            st.info(f"ℹ️ EW vs CW difference is **not statistically significant** (p = {sig_test['p_value']:.4f})")
+            st.info(f"EW vs CW difference is **not statistically significant** (p = {sig_test['p_value']:.4f})")
 
         spy_test = eng.test_vs_benchmark(res_ew, spy_sh)
         st.markdown(f"**Dartboard vs SPY:** {'Significantly different' if spy_test['significant'] else 'Not significantly different'} (p = {spy_test['p_value']:.4f})")
@@ -735,7 +771,7 @@ if current_page == "experiment":
         with col1:
             csv = results_df.to_csv(index=False)
             st.download_button(
-                label="📊 Download Raw Data (CSV)",
+                label="Download Raw Data (CSV)",
                 data=csv,
                 file_name=f"dartboard_results_{regime.replace(' ', '_')}.csv",
                 mime="text/csv"
@@ -767,7 +803,7 @@ if current_page == "experiment":
         Win Rate vs SPY: {np.mean(res_ew > spy_sh) * 100:.1f}%
         """
             st.download_button(
-                label="📝 Download Summary Report",
+                label="Download Summary Report",
                 data=summary,
                 file_name=f"dartboard_summary_{regime.replace(' ', '_')}.txt",
                 mime="text/plain"
@@ -791,7 +827,7 @@ if current_page == "experiment":
 
         # 5. TRANSPARENCY SECTION (New)
         st.markdown("---")
-        st.subheader("🔍 Inspect the Darts")
+        st.subheader("Inspect the Darts")
         st.markdown("To prove these are truly random, here are the stocks picked in the first 3 simulations:")
         
         cols = st.columns(3)
@@ -810,9 +846,9 @@ if current_page == "experiment":
 # =========================================================
 elif current_page == "theory":
     # Sidebar navigation for this page
-    st.sidebar.markdown("### 📚 Theory & Methodology")
+    st.sidebar.markdown("### Theory & Methodology")
     st.sidebar.markdown("---")
-    st.markdown('<p class="big-header">📚 The Academic Framework</p>', unsafe_allow_html=True)
+    st.markdown('<p class="big-header">The Academic Framework</p>', unsafe_allow_html=True)
     
     theory_sections = [
         ("emh", "Efficient Market Hypothesis"),
@@ -840,22 +876,20 @@ elif current_page == "theory":
     # =========================================================
     st.markdown("""
     <div class="theory-box">
-    <h3>1. The Efficient Market Hypothesis (EMH)</h3>
+    <h3>The Efficient Market Hypothesis (EMH)</h3>
     <p>Popularized by <b>Eugene Fama</b> in his 1970 paper <i>"Efficient Capital Markets: A Review of Theory and Empirical Work."</i></p>
 
     <p><b>The core claim:</b> Prices rapidly incorporate available information. If everyone can see the same public information, then any "obvious" mispricing gets competed away.</p>
 
     <p><b>Three forms of efficiency:</b></p>
-    <ul>
-        <li><b>Weak-form:</b> Prices reflect all <i>past</i> price/volume data → technical patterns should not reliably predict returns.</li>
-        <li><b>Semi-strong:</b> Prices reflect all <i>public</i> information → public news and fundamentals are quickly impounded.</li>
-        <li><b>Strong-form:</b> Prices reflect <i>all</i> information, including private → implies even insiders can't win (not supported in reality).</li>
-    </ul>
+    <p><b>Weak-form:</b> Prices reflect all <i>past</i> price/volume data → technical patterns should not reliably predict returns.<br>
+    <b>Semi-strong:</b> Prices reflect all <i>public</i> information → public news and fundamentals are quickly impounded.<br>
+    <b>Strong-form:</b> Prices reflect <i>all</i> information, including private → implies even insiders can't win (not supported in reality).</p>
 
     <p><b>What EMH does NOT say:</b> It does not claim prices are "always correct" or that anomalies never appear. It claims that <b>systematic, scalable outperformance is hard</b> once you account for risk, fees, and trading costs.</p>
 
     <br>
-    <a href="https://www.investopedia.com/terms/e/efficientmarkethypothesis.asp" target="_blank">👉 Read more on Investopedia</a>
+    <a href="https://www.investopedia.com/terms/e/efficientmarkethypothesis.asp" target="_blank">Read more on Investopedia</a>
     </div>
     """, unsafe_allow_html=True)
 
@@ -864,34 +898,34 @@ elif current_page == "theory":
     # =========================================================
     st.markdown("""
     <div class="theory-box">
-    <h3>2. The Random Walk Theory</h3>
+    <h3>The Random Walk Theory</h3>
     <p>Popularized by <b>Burton Malkiel</b> in his 1973 classic <i>"A Random Walk Down Wall Street."</i></p>
 
-    <p><b>Intuition:</b> If markets incorporate information quickly, then tomorrow's price change is driven mainly by <b>new information</b>—and truly new information is unpredictable.</p>
+    <p><b>Intuition:</b> If markets incorporate information quickly, then tomorrow's price change is driven mainly by <b>new information</b>-and truly new information is unpredictable.</p>
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("**The Random Walk Model (with drift):**")
     st.latex(r"P_{t+1} = P_t + \mu + \varepsilon_{t+1}")
     
-    st.markdown("""
+    st.markdown(r"""
     Where:
-    - $P_t$ = Price at time $t$
-    - $\mu$ = Drift term (expected return / risk premium)
-    - $\\varepsilon_{t+1}$ = Random shock with $E[\\varepsilon] = 0$ (unpredictable noise)
+    P_t = Price at time t  
+    μ = Drift term (expected return / risk premium)  
+    ε_{t+1} = Random shock (unpredictable noise)
     """)
     
     st.markdown("""
     <div class="theory-box">
-    <p><b>The "Blindfolded Monkey" Experiment:</b> Malkiel's thought experiment is not about intelligence—it's about <b>information symmetry</b>. 
+    <p><b>The "Blindfolded Monkey" Experiment:</b> Malkiel's thought experiment is not about intelligence - it's about <b>information symmetry</b>. 
     If most public information is already in prices, then many "smart" selections become indistinguishable from randomness <b>before costs</b>, 
     and can be worse <b>after costs</b>.</p>
 
     <p><b>Important nuance:</b> Random walk behavior is most closely tied to <b>weak-form efficiency</b>. 
-    It does not require markets to be perfectly efficient at every moment—only that reliably extracting direction from past prices is very difficult.</p>
+    It does not require markets to be perfectly efficient at every moment - only that reliably extracting direction from past prices is very difficult.</p>
 
     <br>
-    <a href="https://en.wikipedia.org/wiki/A_Random_Walk_Down_Wall_Street" target="_blank">👉 Read more about the book</a>
+    <a href="https://en.wikipedia.org/wiki/A_Random_Walk_Down_Wall_Street" target="_blank">Read more about the book</a>
     </div>
     """, unsafe_allow_html=True)
 
@@ -900,7 +934,7 @@ elif current_page == "theory":
     # =========================================================
     # 3) MONTE CARLO METHODOLOGY
     # =========================================================
-    st.header("3. Monte Carlo Simulation Methodology")
+    st.header("Monte Carlo Simulation Methodology")
     
     st.markdown("""
     <div class="theory-box">
@@ -913,7 +947,7 @@ elif current_page == "theory":
     </div>
     """, unsafe_allow_html=True)
     
-    st.subheader("3.1 The Random Selection Process")
+    st.subheader("The Random Selection Process")
     
     st.markdown("**Step 1: Define the Universe**")
     st.markdown("""
@@ -962,7 +996,7 @@ elif current_page == "theory":
     # =========================================================
     # 4) SHARPE RATIO
     # =========================================================
-    st.subheader("3.2 Measuring Performance: The Sharpe Ratio")
+    st.subheader("Measuring Performance: The Sharpe Ratio")
     
     st.markdown("""
     <div class="theory-box">
@@ -974,11 +1008,11 @@ elif current_page == "theory":
     st.markdown("**The Sharpe Ratio Formula:**")
     st.latex(r"\text{Sharpe Ratio} = \frac{R_p - R_f}{\sigma_p}")
     
-    st.markdown("""
+    st.markdown(r"""
     Where:
-    - $R_p$ = Annualized portfolio return
-    - $R_f$ = Risk-free rate (we use the 13-week T-Bill yield)
-    - $\\sigma_p$ = Annualized portfolio volatility (standard deviation of returns)
+    R_p = Annualized portfolio return
+    R_f = Risk-free rate (13-week T-Bill yield)
+    σ_p = Annualized portfolio volatility
     """)
     
     st.markdown("**How We Calculate It:**")
@@ -1004,21 +1038,25 @@ elif current_page == "theory":
     # =========================================================
     # 5) DATA METHODOLOGY
     # =========================================================
-    st.header("4. Data Source & Methodology")
+    st.header("Data Source & Methodology")
     
+
+
     st.markdown("""
     <div class="theory-box">
-    <h3>✅ Data Integrity: Survivorship Bias-Free</h3>
+    <h3>Data Integrity: Survivorship Bias-Free</h3>
 
-    <p>This experiment uses <b>CRSP data via WRDS</b> (Wharton Research Data Services) — 
+    <p>This experiment uses <b>CRSP data via WRDS</b> (Wharton Research Data Services) - 
     the gold standard for academic finance research.</p>
 
-    <p><b>Dataset Statistics:</b></p>
-    <ul>
-        <li><b>4,936 delisting events</b> captured (bankruptcies, mergers, acquisitions)</li>
-        <li><b>4,826 unique delisted tickers</b> included in the simulation universe</li>
-        <li><b>Coverage:</b> January 2000 – December 2024</li>
-    </ul>
+    <div style="text-align: center; margin-top: 20px; margin-bottom: 20px; padding: 15px; background-color: rgba(0,0,0,0.03); border-radius: 8px;">
+        <h4 style="margin-top: 0; margin-bottom: 15px; color: inherit;">Dataset Statistics</h4>
+        <p style="margin-bottom: 5px;"><b>4,936</b> delisting events captured</p>
+        <p style="font-size: 0.9em; color: #666; margin-top: 0;">(bankruptcies, mergers, acquisitions)</p>
+        <p style="margin-top: 15px; margin-bottom: 5px;"><b>4,826</b> unique delisted tickers</p>
+        <p style="font-size: 0.9em; color: #666; margin-top: 0;">included in simulation universe</p>
+        <p style="margin-top: 15px;"><b>Coverage:</b> Jan 2000 – Dec 2024</p>
+    </div>
 
     <p><b>Why this matters:</b> Studies using survivorship-biased data (like Yahoo Finance) can 
     overstate returns by <b>1-2% annually</b>. Our results reflect what a real investor 
@@ -1039,7 +1077,7 @@ elif current_page == "theory":
     # =========================================================
     # 6) WEIGHTING SCHEMES DEEP DIVE
     # =========================================================
-    st.header("5. Weighting Schemes: Why They Matter")
+    st.header("Weighting Schemes: Why They Matter")
     
     col1, col2 = st.columns(2)
     
@@ -1049,12 +1087,10 @@ elif current_page == "theory":
         <h3>Equal-Weight Portfolio</h3>
         <p><b>Construction:</b> Every stock gets identical weight</p>
         <p><b>Characteristics:</b></p>
-        <ul>
-            <li>Higher exposure to <b>small-cap stocks</b></li>
-            <li>Built-in <b>contrarian rebalancing</b> (sell winners, buy losers)</li>
-            <li>Requires frequent rebalancing → higher turnover</li>
-            <li>Historically shows a <b>small-cap premium</b></li>
-        </ul>
+        <p>Higher exposure to <b>small-cap stocks</b><br>
+        Built-in <b>contrarian rebalancing</b> (sell winners, buy losers)<br>
+        Requires frequent rebalancing → higher turnover<br>
+        Historically shows a <b>small-cap premium</b></p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -1064,25 +1100,22 @@ elif current_page == "theory":
         <h3>Cap-Weight Portfolio</h3>
         <p><b>Construction:</b> Weight proportional to market cap</p>
         <p><b>Characteristics:</b></p>
-        <ul>
-            <li>Dominated by <b>mega-cap stocks</b></li>
-            <li>Built-in <b>momentum tilt</b> (winners grow in weight)</li>
-            <li>Low turnover, tax efficient</li>
-            <li>How most major indices (S&P 500) are built</li>
-        </ul>
+        <p>Dominated by <b>mega-cap stocks</b><br>
+        Built-in <b>momentum tilt</b> (winners grow in weight)<br>
+        Low turnover, tax efficient<br>
+        How most major indices (S&P 500) are built</p>
         </div>
         """, unsafe_allow_html=True)
     
     st.markdown("""
     <div class="theory-box">
-    <h3>⚠️ Important Interpretation Note</h3>
+    <h3>Important Interpretation Note</h3>
     <p>If equal-weight portfolios outperform cap-weight in our simulation, this is <b>NOT evidence of market inefficiency</b>. 
     It likely reflects:</p>
-    <ul>
-        <li><b>Size factor exposure</b> — small stocks have historically earned a premium (Fama-French)</li>
-        <li><b>Rebalancing bonus</b> — systematically buying low and selling high</li>
-        <li><b>Different risk profile</b> — equal-weight portfolios are more volatile</li>
-    </ul>
+    <p>It likely reflects:<br>
+    <b>Size factor exposure</b> - small stocks have historically earned a premium (Fama-French)<br>
+    <b>Rebalancing bonus</b> - systematically buying low and selling high<br>
+    <b>Different risk profile</b> - equal-weight portfolios are more volatile</p>
     <p>A fair comparison requires adjusting for these factor exposures.</p>
     </div>
     """, unsafe_allow_html=True)
@@ -1092,17 +1125,15 @@ elif current_page == "theory":
     # =========================================================
     # 7) STATISTICAL INTERPRETATION
     # =========================================================
-    st.header("6. Interpreting the Results")
+    st.header("Interpreting the Results")
     
     st.markdown("""
     <div class="theory-box">
     <h3>Reading the Histogram</h3>
     <p>The output histogram shows the <b>distribution of Sharpe Ratios</b> across all simulations.</p>
-    <ul>
-        <li><b>Center (mean/median):</b> The "typical" outcome of a random portfolio</li>
-        <li><b>Spread (width):</b> How much outcomes vary based on stock selection</li>
-        <li><b>Benchmark lines:</b> Where SPY and IWM fall in the distribution</li>
-    </ul>
+    <p><b>Center (mean/median):</b> The "typical" outcome of a random portfolio<br>
+    <b>Spread (width):</b> How much outcomes vary based on stock selection<br>
+    <b>Benchmark lines:</b> Where SPY and IWM fall in the distribution</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1112,12 +1143,12 @@ elif current_page == "theory":
     |----------|----------------|
     | "Can random selection match the market?" | If benchmark is near the **middle** of distribution → Yes, many random portfolios are comparable |
     | "Is beating the market hard?" | If benchmark is in the **right tail** → Yes, few random portfolios beat it |
-    | "Does weighting matter?" | Compare the **two histograms** — if they're shifted, weighting has systematic effects |
+    | "Does weighting matter?" | Compare the **two histograms** - if they're shifted, weighting has systematic effects |
     """)
 
     st.markdown("**Win Rate Calculation:**")
     st.latex(r"\text{Win Rate} = \frac{\sum_{i=1}^{N} \mathbf{1}(Sharpe_i > Sharpe_{SPY})}{N} \times 100\%")
-    st.markdown("Where $\mathbf{1}(\\cdot)$ is an indicator function that equals 1 when the condition is true, 0 otherwise.")
+    st.markdown(r"Where $\mathbf{1}(\\cdot)$ is an indicator function that equals 1 when the condition is true, 0 otherwise.")
 
     st.divider()
 
@@ -1126,14 +1157,12 @@ elif current_page == "theory":
     # =========================================================
     st.markdown("""
     <div class="theory-box">
-    <h3>7. Limitations & Caveats</h3>
-    <ul>
-        <li><b>No transaction costs:</b> Real rebalancing incurs fees, bid-ask spreads, and market impact</li>
-        <li><b>No taxes:</b> Capital gains taxes would reduce returns, especially for equal-weight (high turnover)</li>
-        <li><b>Perfect execution assumed:</b> We assume you can trade at exactly the historical prices</li>
-        <li><b>Hindsight universe:</b> We know which stocks existed; in real-time, you wouldn't know future listings</li>
-        <li><b>No capacity constraints:</b> Small stocks may not have enough liquidity for large positions</li>
-    </ul>
+    <h3>Limitations & Caveats</h3>
+    <p><b>No transaction costs:</b> Real rebalancing incurs fees, bid-ask spreads, and market impact<br>
+    <b>No taxes:</b> Capital gains taxes would reduce returns, especially for equal-weight (high turnover)<br>
+    <b>Perfect execution assumed:</b> We assume you can trade at exactly the historical prices<br>
+    <b>Hindsight universe:</b> We know which stocks existed; in real-time, you wouldn't know future listings<br>
+    <b>No capacity constraints:</b> Small stocks may not have enough liquidity for large positions</p>
     <p><b>Bottom line:</b> These results represent a <b>theoretical upper bound</b>. Real-world implementation would likely show lower returns.</p>
     </div>
     """, unsafe_allow_html=True)
@@ -1144,10 +1173,10 @@ elif current_page == "theory":
     # 9) SOURCE CODE
     # =========================================================
     # Replace the source code section with:
-    st.header("8. The Source Code")
-    st.markdown("We believe in **open, reproducible research**.")
+    st.header("The Source Code")
+    st.markdown("I believe in **open, reproducible research**.")
 
-    with st.expander("📄 Click to view engine.py source code"):
+    with st.expander("Click to view engine.py source code"):
         try:
             with open("engine.py", "r") as f:
                 st.code(f.read(), language="python")
@@ -1157,17 +1186,15 @@ elif current_page == "theory":
     # =========================================================
     # 10) REFERENCES
     # =========================================================
-    st.header("9. Academic References")
+    st.header("Academic References")
     st.markdown("""
     <div class="theory-box">
-    <h3>📚 Key Papers & Books</h3>
-    <ul>
-        <li>Fama, E. (1970). <i>"Efficient Capital Markets: A Review of Theory and Empirical Work."</i> Journal of Finance.</li>
-        <li>Malkiel, B. (1973). <i>"A Random Walk Down Wall Street."</i> W.W. Norton & Company.</li>
-        <li>Sharpe, W. (1966). <i>"Mutual Fund Performance."</i> Journal of Business.</li>
-        <li>Fama, E. & French, K. (1993). <i>"Common Risk Factors in the Returns on Stocks and Bonds."</i> Journal of Financial Economics.</li>
-        <li>Elton, E., Gruber, M., & Blake, C. (1996). <i>"Survivorship Bias and Mutual Fund Performance."</i> Review of Financial Studies.</li>
-    </ul>
+    <h3>Key Papers & Books</h3>
+    <p>Fama, E. (1970). <i>"Efficient Capital Markets: A Review of Theory and Empirical Work."</i> Journal of Finance.<br>
+    Malkiel, B. (1973). <i>"A Random Walk Down Wall Street."</i> W.W. Norton & Company.<br>
+    Sharpe, W. (1966). <i>"Mutual Fund Performance."</i> Journal of Business.<br>
+    Fama, E. & French, K. (1993). <i>"Common Risk Factors in the Returns on Stocks and Bonds."</i> Journal of Financial Economics.<br>
+    Elton, E., Gruber, M., & Blake, C. (1996). <i>"Survivorship Bias and Mutual Fund Performance."</i> Review of Financial Studies.</p>
     </div>
     """, unsafe_allow_html=True)
 
