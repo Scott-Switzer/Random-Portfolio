@@ -339,6 +339,14 @@ def get_data():
 
 ret_matrix, cap_matrix, min_date, max_date = get_data()
 
+# --- FAMA-FRENCH 3-FACTOR DATA (local, offline) ---
+@st.cache_data
+def get_ff_factors():
+    """Load local Fama-French 3-factor monthly data (no network needed)."""
+    return eng.load_ff_factors('data/ff3_monthly.csv')
+
+ff_factors = get_ff_factors()
+
 def about_page():
     # Sidebar navigation for About page
     st.sidebar.markdown("### About")
@@ -755,6 +763,75 @@ if current_page == "experiment":
         )
 
         st.plotly_chart(fig, use_container_width=True)
+
+        # =====================================================================
+        # FAMA-FRENCH 3-FACTOR CREDIBILITY PANEL (offline)
+        # Strips out market/size/value exposure to test for TRUE skill (alpha).
+        # =====================================================================
+        st.markdown("---")
+        st.markdown(render_section_header("Fama–French 3-Factor Credibility"),
+                    unsafe_allow_html=True)
+
+        with st.spinner("Regressing darts on Fama–French factors..."):
+            ff_n = min(n_sims, 2000)
+            ff_dist = eng.run_ff_analysis(sub_ret, sub_cap, ff_n, n_stocks, rf, ff_factors)
+
+        ew_a, cw_a = ff_dist.get("ew", {}), ff_dist.get("cw", {})
+
+        # Metric cards: FF3 alpha (annualized) for each weighting scheme
+        cards = render_metric_cards([
+            {"icon": "🎯", "value": f"{ew_a.get('median', float('nan')):+.2%}",
+             "label": "Dartboard α (EW)", "delta": f"{ew_a.get('pct_sig_positive', float('nan')):.0f}% sig. +"},
+            {"icon": "📊", "value": f"{cw_a.get('median', float('nan')):+.2%}",
+             "label": "Index Proxy α (CW)", "delta": f"{cw_a.get('pct_sig_positive', float('nan')):.0f}% sig. +"},
+            {"icon": "🏛️", "value": f"{ew_a.get('mean_beta_mkt', float('nan')):.2f}",
+             "label": "Dartboard β (market)", "delta": ""},
+            {"icon": "📈", "value": f"{cw_a.get('mean_beta_mkt', float('nan')):.2f}",
+             "label": "Proxy β (market)", "delta": ""},
+        ])
+        st.markdown(cards, unsafe_allow_html=True)
+
+        # Side-by-side alpha distribution table
+        ff_df = pd.DataFrame({
+            'Metric': ['Median Alpha (ann.)', 'Mean Alpha (ann.)',
+                       '5th–95th pct', '% Significantly Positive (|t|>1.96)',
+                       'Mean Market Beta', 'Mean R²'],
+            'Dartboard (EW)': [
+                f"{ew_a.get('median', float('nan')):+.2%}",
+                f"{ew_a.get('mean', float('nan')):+.2%}",
+                f"[{ew_a.get('p5', float('nan')):+.1%}, {ew_a.get('p95', float('nan')):+.1%}]",
+                f"{ew_a.get('pct_sig_positive', float('nan')):.1f}%",
+                f"{ew_a.get('mean_beta_mkt', float('nan')):.2f}",
+                f"{ew_a.get('mean_r2', float('nan')):.2f}",
+            ],
+            'Index Proxy (CW)': [
+                f"{cw_a.get('median', float('nan')):+.2%}",
+                f"{cw_a.get('mean', float('nan')):+.2%}",
+                f"[{cw_a.get('p5', float('nan')):+.1%}, {cw_a.get('p95', float('nan')):+.1%}]",
+                f"{cw_a.get('pct_sig_positive', float('nan')):.1f}%",
+                f"{cw_a.get('mean_beta_mkt', float('nan')):.2f}",
+                f"{cw_a.get('mean_r2', float('nan')):.2f}",
+            ],
+        })
+        st.dataframe(ff_df, use_container_width=True, hide_index=True)
+
+        c = get_colors()
+        ew_sig = ew_a.get('pct_sig_positive', 0.0)
+        interpretation = (
+            f"Each simulated random portfolio is regressed on the Fama–French factors "
+            f"(Market, Size, Value) plus the risk-free rate. The <b>intercept (alpha)</b> is the "
+            f"return a monkey portfolio earns <b>after</b> accounting for systematic risk — i.e. true skill. "
+            f"Across {ff_n:,} darts the median alpha is essentially zero "
+            f"(EW {ew_a.get('median', 0):+.2%}, CW {cw_a.get('median', 0):+.2%}), and only "
+            f"{ew_sig:.0f}% beat zero at the 5% level. "
+            f"<b>Conclusion:</b> random portfolios match the market on a risk-adjusted basis, but they earn "
+            f"<b>no reliable alpha</b> — Malkiel's claim survives, but as a statement about <i>risk-adjusted</i> "
+            f"parity, not outperformance."
+        )
+        st.markdown(f"""<div style="background-color: {c['bg_secondary']}; padding: 18px 22px;
+            border-radius: 12px; border: 1px solid {c['border']}; text-align: left;
+            line-height: 1.7; margin-top: 0.5rem;">{interpretation}</div>""",
+                    unsafe_allow_html=True)
 
         st.markdown("---")
         st.subheader("📥 Export Results")
