@@ -106,6 +106,37 @@ def get_css():
     .stDataFrame, .stTable, .stJson, .stCode {{
         text-align: left !important;
     }}
+
+    /* Theme-aware native components (dataframes, code) so they stay
+       readable in BOTH light and dark mode — the Dark toggle only flips
+       our custom tokens, not Streamlit's own component theme. */
+    .stDataFrame table, .stTable table {{
+        font-family: 'IBM Plex Sans', sans-serif !important;
+        background-color: {c['bg_secondary']} !important;
+        color: {c['text_primary']} !important;
+    }}
+    .stDataFrame thead th, .stTable thead th {{
+        background-color: {c['bg_tertiary']} !important;
+        color: {c['text_primary']} !important;
+        font-weight: 600 !important;
+        white-space: nowrap !important;
+    }}
+    .stDataFrame tbody td, .stTable tbody td {{
+        background-color: {c['bg_secondary']} !important;
+        color: {c['text_primary']} !important;
+        border-color: {c['border']} !important;
+    }}
+    .stDataFrame tbody tr:hover td, .stTable tbody tr:hover td {{
+        background-color: {c['bg_tertiary']} !important;
+    }}
+    .stCode, pre, code {{
+        background-color: {c['bg_tertiary']} !important;
+        color: {c['text_primary']} !important;
+        border: 1px solid {c['border']} !important;
+    }}
+    .stCode textarea, .stCode pre {{
+        color: {c['text_primary']} !important;
+    }}
     
     h1, h2, h3, h4, h5, h6,
     .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {{

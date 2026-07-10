@@ -879,32 +879,57 @@ if current_page == "experiment":
         def _display_pct(value):
             return f"{value:.1f}%" if value is not None and np.isfinite(value) else "—"
 
-        expert_rows = []
+        # Build a theme-aware HTML table with short, intuitive headers so
+        # columns never truncate (the prior st.dataframe squeezed 7 long
+        # headers and clipped them, e.g. "% CW Da").
+        c = get_colors()
+        headers = ["Fund", "Sharpe", "EW Beat %", "CW Beat %", "FF3 α",
+                   "EW α+ %", "CW α+ %"]
+        body_rows = ""
         for ticker, name in cfg.EXPERT_FUNDS.items():
             result = expert_results.get(ticker)
             if result is None:
-                expert_rows.append({
-                    "Fund": f"{name} ({ticker})",
-                    "Fund Sharpe": "Unavailable",
-                    "% EW Darts Beating It": "—",
-                    "% CW Darts Beating It": "—",
-                    "Fund FF3 Alpha": "Unavailable",
-                    "% EW Darts Higher α": "—",
-                    "% CW Darts Higher α": "—",
-                })
-                continue
+                cells = [f"{name} ({ticker})", "Unavail.", "—", "—", "—", "—", "—"]
+            else:
+                cells = [
+                    f"{result['name']} ({ticker})",
+                    f"{result['sharpe']:.2f}",
+                    _display_pct(result["ew_sharpe_beat_pct"]),
+                    _display_pct(result["cw_sharpe_beat_pct"]),
+                    f"{result['ff_alpha']:+.2%}",
+                    _display_pct(result["ew_alpha_beat_pct"]),
+                    _display_pct(result["cw_alpha_beat_pct"]),
+                ]
+            tds = "".join(
+                f"<td style='text-align:{'left' if i == 0 else 'right'}; "
+                f"color:{c['text_primary']}; padding:0.6rem 0.75rem; "
+                f"border-bottom:1px solid {c['border']};'>{v}</td>"
+                for i, v in enumerate(cells)
+            )
+            body_rows += f"<tr>{tds}</tr>"
 
-            expert_rows.append({
-                "Fund": f"{result['name']} ({ticker})",
-                "Fund Sharpe": f"{result['sharpe']:.2f}",
-                "% EW Darts Beating It": _display_pct(result["ew_sharpe_beat_pct"]),
-                "% CW Darts Beating It": _display_pct(result["cw_sharpe_beat_pct"]),
-                "Fund FF3 Alpha": f"{result['ff_alpha']:+.2%}",
-                "% EW Darts Higher α": _display_pct(result["ew_alpha_beat_pct"]),
-                "% CW Darts Higher α": _display_pct(result["cw_alpha_beat_pct"]),
-            })
-
-        st.dataframe(pd.DataFrame(expert_rows), use_container_width=True, hide_index=True)
+        table_html = f"""
+        <div style="overflow-x:auto; border:1px solid {c['border']};
+                    border-radius:12px; margin:0.5rem 0;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.85rem;
+                      font-family:'IBM Plex Sans',sans-serif;">
+          <thead>
+            <tr style="background:{c['bg_tertiary']};">
+              {''.join(f"<th style='text-align:{'left' if i==0 else 'right'}; padding:0.6rem 0.75rem; color:{c['text_primary']}; border-bottom:1px solid {c['border']}; white-space:nowrap;'>{h}</th>" for i, h in enumerate(headers))}
+            </tr>
+          </thead>
+          <tbody>
+            {body_rows}
+          </tbody>
+        </table>
+        </div>
+        """
+        st.html(table_html)
+        st.caption(
+            "Beat % = share of random dart portfolios that **outperformed** the fund "
+            "(higher Sharpe). α+ % = share with a **higher Fama–French alpha** than the fund. "
+            "Low Beat % means the experts' risk-adjusted edge is real."
+        )
         st.caption(
             "Historical context: in the Wall Street Journal dartboard contest, "
             "professional selections outperformed the darts in roughly 61% of contests. "
