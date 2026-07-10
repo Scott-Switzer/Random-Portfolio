@@ -3,12 +3,13 @@ Engine module for the Dartboard Experiment.
 Contains all simulation logic, statistical functions, and data handling.
 """
 
-from typing import Tuple, List, Optional, Dict
+from typing import Any, Tuple, List, Optional, Dict
 import pandas as pd
 import numpy as np
 import logging
 import math
 from functools import wraps
+from pathlib import Path
 
 try:
     import yfinance as yf
@@ -276,6 +277,78 @@ def calculate_sharpe_vectorized(monthly_returns: np.ndarray, rf_rate: float) -> 
 # =========================================================
 # BENCHMARK STATS
 # =========================================================
+_monthly_returns_cache: Dict[Tuple[str, str, str], pd.Series] = {}
+
+
+def _download_monthly_returns(
+    ticker: str,
+    start_str: str,
+    end_str: str,
+) -> Optional[pd.Series]:
+    """Download one ticker and return its month-end total-return proxy series.
+
+    Successful results are cached in-process so the expert benchmark does not
+    download a fund twice: once for its Sharpe ratio and once for its FF alpha.
+    Failed downloads are deliberately not cached, so a later app rerun can
+    recover from a transient Yahoo Finance outage or throttle.
+    """
+    cache_key = (ticker, start_str, end_str)
+    cached = _monthly_returns_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if yf is None:
+        logger.warning("ENGINE WARNING: yfinance unavailable for %s.", ticker)
+        return None
+
+    try:
+        data = yf.download(ticker, start=start_str, end=end_str, progress=False)
+    except Exception as exc:
+        logger.warning("ENGINE WARNING: Download failed for %s: %s", ticker, exc)
+        return None
+
+    if data is None or data.empty:
+        logger.warning("ENGINE WARNING: No data found for %s.", ticker)
+        return None
+
+    # yfinance versions differ in whether a one-ticker download is flat or
+    # multi-level. Select the ticker level wherever it appears.
+    if isinstance(data.columns, pd.MultiIndex):
+        for level in range(data.columns.nlevels):
+            if ticker in data.columns.get_level_values(level):
+                data = data.xs(ticker, level=level, axis=1)
+                break
+
+    col = "Adj Close" if "Adj Close" in data.columns else "Close"
+    if col not in data.columns:
+        logger.warning("ENGINE WARNING: No usable price column for %s.", ticker)
+        return None
+
+    prices = data[col]
+    if isinstance(prices, pd.DataFrame):
+        if prices.shape[1] == 0:
+            return None
+        prices = prices.iloc[:, 0]
+
+    prices = pd.to_numeric(prices, errors="coerce").dropna()
+    if prices.empty:
+        logger.warning("ENGINE WARNING: No valid prices found for %s.", ticker)
+        return None
+
+    try:
+        monthly = prices.resample("ME").last().pct_change(fill_method=None).dropna()
+    except ValueError:  # Compatibility with older pandas monthly aliases.
+        monthly = prices.resample("M").last().pct_change(fill_method=None).dropna()
+
+    if monthly.empty:
+        logger.warning("ENGINE WARNING: Not enough monthly observations for %s.", ticker)
+        return None
+
+    monthly = monthly.astype(float).rename(ticker)
+    _monthly_returns_cache[cache_key] = monthly
+    return monthly
+
+
 @handle_errors(default_return=(0.0, 0.0))
 def get_benchmark_stats(ticker: str, start_date, end_date, rf_rate: float) -> Tuple[float, float]:
     """
@@ -290,38 +363,132 @@ def get_benchmark_stats(ticker: str, start_date, end_date, rf_rate: float) -> Tu
     Returns:
         Tuple of (sharpe_ratio, annualized_return)
     """
-    if yf is None:
-        logger.warning("ENGINE WARNING: yfinance unavailable. Returning empty benchmark stats.")
-        return 0.0, 0.0
-
     s_str = pd.to_datetime(start_date).strftime('%Y-%m-%d')
     e_str = pd.to_datetime(end_date).strftime('%Y-%m-%d')
-    
+
     logger.info(f"ENGINE: Fetching {ticker} from {s_str} to {e_str}...")
-    data = yf.download(ticker, start=s_str, end=e_str, progress=False)
-    
-    if data.empty: 
+    monthly = _download_monthly_returns(ticker, s_str, e_str)
+
+    if monthly is None or len(monthly) < 6:
         logger.error(f"ENGINE ERROR: No data found for {ticker}.")
         return 0.0, 0.0
-    
-    # Handle MultiIndex (New yfinance version)
-    if isinstance(data.columns, pd.MultiIndex):
-        try:
-            data = data.xs(ticker, level=1, axis=1)
-        except KeyError:
-            pass
-        
-    col = 'Adj Close' if 'Adj Close' in data.columns else 'Close'
-    
-    # Resample to monthly
-    try:
-        monthly = data[col].resample('ME').last().pct_change().dropna()
-    except ValueError:
-        monthly = data[col].resample('M').last().pct_change().dropna()
-    
+
     sharpe = calculate_sharpe(monthly.values, rf_rate)
     ret = monthly.mean() * 12
-    return sharpe, ret
+    return float(sharpe), float(ret)
+
+
+def get_expert_fund_stats(
+    ticker: str,
+    start_date,
+    end_date,
+    rf_rate: float,
+) -> Optional[Tuple[float, float, float]]:
+    """Return Sharpe, annualized return, and FF3 alpha for one active fund.
+
+    A download, local factor-file, or regression problem is isolated to the
+    affected fund. Callers receive ``None`` rather than losing the whole
+    experiment to one unavailable Yahoo Finance ticker.
+    """
+    try:
+        s_str = pd.to_datetime(start_date).strftime("%Y-%m-%d")
+        e_str = pd.to_datetime(end_date).strftime("%Y-%m-%d")
+        monthly = _download_monthly_returns(ticker, s_str, e_str)
+        if monthly is None or len(monthly) < 6:
+            return None
+
+        # Keep the existing benchmark calculation as the single Sharpe/return
+        # definition used by both index and active-fund comparisons.
+        sharpe, ann_return = get_benchmark_stats(ticker, start_date, end_date, rf_rate)
+
+        ff_path = Path(__file__).resolve().parent / "data" / "ff3_monthly.csv"
+        ff = load_ff_factors(str(ff_path))
+        periods = pd.DatetimeIndex(monthly.index).to_period("M")
+        ff_aligned = ff.reindex(periods)
+        valid = ff_aligned.notna().all(axis=1).to_numpy()
+        if valid.sum() <= 4:
+            logger.warning("ENGINE WARNING: No sufficient FF3 overlap for %s.", ticker)
+            return None
+
+        alpha, _, _ = fama_french_alpha(
+            monthly.to_numpy(dtype=np.float64)[valid],
+            ff_aligned.iloc[valid],
+        )
+        return float(sharpe), float(ann_return), float(alpha)
+    except Exception as exc:
+        logger.warning("ENGINE WARNING: Expert fund %s unavailable: %s", ticker, exc)
+        return None
+
+
+def _comparison_series(results: Any, metric: str) -> Optional[np.ndarray]:
+    """Extract a finite simulation metric from an array or metric dictionary."""
+    if isinstance(results, dict):
+        aliases = {
+            "sharpe": ("sharpe", "sharpes", "results", "values"),
+            "alpha": ("alpha", "alphas", "ff_alpha", "ff_alphas"),
+        }
+        values = next((results[key] for key in aliases[metric] if key in results), None)
+    else:
+        values = results if metric == "sharpe" else None
+
+    if values is None:
+        return None
+    values = np.asarray(values, dtype=np.float64).reshape(-1)
+    values = values[np.isfinite(values)]
+    return values if len(values) else None
+
+
+def _percent_beating(values: Optional[np.ndarray], target: float) -> Optional[float]:
+    """Percentage of finite simulation results strictly greater than a target."""
+    if values is None or not np.isfinite(target):
+        return None
+    return float(np.mean(values > target) * 100.0)
+
+
+def run_expert_benchmark(
+    n_sims_results_ew,
+    n_sims_results_cw,
+    start_date,
+    end_date,
+    rf_rate: float,
+) -> Dict[str, Optional[Dict[str, Any]]]:
+    """Compare EW and CW dartboards with the configured active-fund experts.
+
+    Each simulation input can be a Sharpe array, or a dictionary containing
+    ``sharpe`` and ``alpha``/``alphas`` arrays. Alpha comparisons are returned
+    as ``None`` when only Sharpe arrays are supplied. Failed individual fund
+    downloads are preserved as ``{ticker: None}`` so the UI can report them
+    without suppressing healthy peers.
+    """
+    # Import locally to keep the engine importable in script-level smoke tests.
+    from config import EXPERT_FUNDS
+
+    ew_sharpes = _comparison_series(n_sims_results_ew, "sharpe")
+    cw_sharpes = _comparison_series(n_sims_results_cw, "sharpe")
+    ew_alphas = _comparison_series(n_sims_results_ew, "alpha")
+    cw_alphas = _comparison_series(n_sims_results_cw, "alpha")
+
+    comparisons: Dict[str, Optional[Dict[str, Any]]] = {}
+    for ticker, name in EXPERT_FUNDS.items():
+        stats = get_expert_fund_stats(ticker, start_date, end_date, rf_rate)
+        if stats is None:
+            comparisons[ticker] = None
+            continue
+
+        sharpe, ann_return, ff_alpha = stats
+        comparisons[ticker] = {
+            "ticker": ticker,
+            "name": name,
+            "sharpe": sharpe,
+            "ann_return": ann_return,
+            "ff_alpha": ff_alpha,
+            "ew_sharpe_beat_pct": _percent_beating(ew_sharpes, sharpe),
+            "cw_sharpe_beat_pct": _percent_beating(cw_sharpes, sharpe),
+            "ew_alpha_beat_pct": _percent_beating(ew_alphas, ff_alpha),
+            "cw_alpha_beat_pct": _percent_beating(cw_alphas, ff_alpha),
+        }
+
+    return comparisons
 
 
 # =========================================================
