@@ -89,8 +89,14 @@ def get_css():
         margin: 0 auto !important;
     }}
     
-    /* Force all text to use our fonts and centralized alignment */
-    html, body, [class*="st-"], .stMarkdown, .stMarkdown p, .stMarkdown li, .stMarkdown span {{
+    /* Fonts + centered TEXT (scoped to text nodes, NOT layout containers,
+       so Streamlit's flex button/column wrappers keep their alignment) */
+    html, body {{
+        font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        color: {c['text_primary']} !important;
+    }}
+    .stMarkdown, .stMarkdown p, .stMarkdown li, .stMarkdown span,
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {{
         font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
         color: {c['text_primary']} !important;
         text-align: center !important;
@@ -407,6 +413,23 @@ def get_css():
         border-radius: 2px;
     }}
     
+    /* Top nav wrapper (custom HTML in app.py) — keep it a clean, non-overlapping bar */
+    .top-nav {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.5rem 0;
+        margin-bottom: 0.5rem;
+        flex-wrap: wrap;
+    }}
+    .nav-brand {{ font-family: 'IBM Plex Serif', Georgia, serif !important; font-weight: 700; font-size: 1.1rem; color: {c['text_primary']} !important; }}
+    .nav-tabs {{ display: flex; gap: 0.5rem; flex-wrap: wrap; }}
+    .nav-tab {{ cursor: pointer; padding: 0.25rem 0.6rem; border-radius: 6px; color: {c['text_secondary']} !important; }}
+    .nav-tab.active {{ color: {c['accent']} !important; font-weight: 600; }}
+    .nav-right {{ display: flex; align-items: center; }}
+    .theme-toggle {{ cursor: pointer; padding: 0.25rem 0.5rem; }}
+
     /* ============================================
        METRIC CARDS
        ============================================ */

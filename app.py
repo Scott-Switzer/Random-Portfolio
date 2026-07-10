@@ -17,7 +17,7 @@ st.set_page_config(
     page_title="Dartboard Experiment | EMH Test",
     page_icon="🎯",
     layout="wide",
-    initial_sidebar_state="collapsed", 
+    initial_sidebar_state="expanded",
 )
 
 # --- APPLY CUSTOM STYLES ---
@@ -789,7 +789,7 @@ if current_page == "experiment":
             {"icon": "📈", "value": f"{cw_a.get('mean_beta_mkt', float('nan')):.2f}",
              "label": "Proxy β (market)", "delta": ""},
         ])
-        st.markdown(cards, unsafe_allow_html=True)
+        st.html(cards)
 
         # Side-by-side alpha distribution table
         ff_df = pd.DataFrame({
