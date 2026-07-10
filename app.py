@@ -815,6 +815,32 @@ if current_page == "experiment":
         })
         st.dataframe(ff_df, use_container_width=True, hide_index=True)
 
+        # Alpha distribution histogram with zero (no-skill) reference line
+        alphas_ew = ew_a.get("alphas")
+        alphas_cw = cw_a.get("alphas")
+        if alphas_ew is not None and len(alphas_ew) > 0:
+            fig_a = go.Figure()
+            fig_a.add_trace(go.Histogram(
+                x=alphas_ew * 100, name="Dartboard (EW)", opacity=0.6,
+                marker_color="#1f77b4", nbinsx=40, histnorm="probability density"))
+            if alphas_cw is not None and len(alphas_cw) > 0:
+                fig_a.add_trace(go.Histogram(
+                    x=alphas_cw * 100, name="Index Proxy (CW)", opacity=0.6,
+                    marker_color="#ff7f0e", nbinsx=40, histnorm="probability density"))
+            fig_a.add_vline(x=0, line_color="red", line_width=2, line_dash="dash",
+                           annotation_text="Zero Alpha (no skill)",
+                           annotation_position="top")
+            fig_a.update_layout(
+                title="<b>Fama–French Alpha Distribution</b><br><sub>Annualized, % per year</sub>",
+                xaxis_title="Alpha (% per year)",
+                yaxis_title="Density",
+                barmode="overlay",
+                template="plotly_white",
+                height=420,
+                legend=dict(yanchor="top", y=0.99, xanchor="right", x=0.99),
+            )
+            st.plotly_chart(fig_a, use_container_width=True)
+
         c = get_colors()
         ew_sig = ew_a.get('pct_sig_positive', 0.0)
         interpretation = (

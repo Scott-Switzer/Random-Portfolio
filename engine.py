@@ -607,12 +607,17 @@ def run_ff_analysis(
 
     summaries = {}
     for key, values in buckets.items():
+        concat_alpha = (
+            np.concatenate(values["alpha"]) if values["alpha"] else np.empty(0)
+        )
         summaries[key] = _summarize_alpha_distribution(
-            np.concatenate(values["alpha"]) if values["alpha"] else np.empty(0),
+            concat_alpha,
             np.concatenate(values["t"]) if values["t"] else np.empty(0),
             np.concatenate(values["beta"]) if values["beta"] else np.empty(0),
             np.concatenate(values["r2"]) if values["r2"] else np.empty(0),
         )
+        # Keep the raw annualized alpha array for visualization (histogram).
+        summaries[key]["alphas"] = concat_alpha
 
     return summaries
 
