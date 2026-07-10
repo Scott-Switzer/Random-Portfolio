@@ -18,6 +18,18 @@ BENCHMARKS = {
     "IWM": "Russell 2000"
 }
 
+# Long-running, actively managed equity funds selected as credible professional
+# comparators: Contrafund (large-growth), Dodge & Cox Stock (deep value), Growth
+# Fund of America (large-growth), Blue Chip Growth (large-growth), and Low-Priced
+# Stock (small/mid-value). Each has a multi-decade public record on Yahoo Finance.
+EXPERT_FUNDS = {
+    "FCNTX": "Fidelity Contrafund",
+    "DODGX": "Dodge & Cox Stock Fund",
+    "AGTHX": "American Funds Growth Fund of America",
+    "TRBCX": "T. Rowe Price Blue Chip Growth Fund",
+    "FLPSX": "Fidelity Low-Priced Stock Fund",
+}
+
 # Cache settings
 CACHE_TTL_SECONDS = 3600  # 1 hour
 

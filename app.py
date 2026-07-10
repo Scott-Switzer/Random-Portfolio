@@ -859,6 +859,60 @@ if current_page == "experiment":
             line-height: 1.7; margin-top: 0.5rem;">{interpretation}</div>""",
                     unsafe_allow_html=True)
 
+        # =====================================================================
+        # EXPERT ACTIVE-FUND BENCHMARK
+        # Uses the same selected period and risk-free rate as the dartboards.
+        # A failed Yahoo Finance ticker is shown as unavailable, not fatal.
+        # =====================================================================
+        st.markdown("---")
+        st.markdown(render_section_header("Expert Benchmark"), unsafe_allow_html=True)
+
+        with st.spinner("Fetching active-fund benchmarks and estimating FF3 alpha..."):
+            expert_results = eng.run_expert_benchmark(
+                {"sharpe": res_ew, "alphas": alphas_ew},
+                {"sharpe": res_cw, "alphas": alphas_cw},
+                s,
+                e,
+                rf,
+            )
+
+        def _display_pct(value):
+            return f"{value:.1f}%" if value is not None and np.isfinite(value) else "—"
+
+        expert_rows = []
+        for ticker, name in cfg.EXPERT_FUNDS.items():
+            result = expert_results.get(ticker)
+            if result is None:
+                expert_rows.append({
+                    "Fund": f"{name} ({ticker})",
+                    "Fund Sharpe": "Unavailable",
+                    "% EW Darts Beating It": "—",
+                    "% CW Darts Beating It": "—",
+                    "Fund FF3 Alpha": "Unavailable",
+                    "% EW Darts Higher α": "—",
+                    "% CW Darts Higher α": "—",
+                })
+                continue
+
+            expert_rows.append({
+                "Fund": f"{result['name']} ({ticker})",
+                "Fund Sharpe": f"{result['sharpe']:.2f}",
+                "% EW Darts Beating It": _display_pct(result["ew_sharpe_beat_pct"]),
+                "% CW Darts Beating It": _display_pct(result["cw_sharpe_beat_pct"]),
+                "Fund FF3 Alpha": f"{result['ff_alpha']:+.2%}",
+                "% EW Darts Higher α": _display_pct(result["ew_alpha_beat_pct"]),
+                "% CW Darts Higher α": _display_pct(result["cw_alpha_beat_pct"]),
+            })
+
+        st.dataframe(pd.DataFrame(expert_rows), use_container_width=True, hide_index=True)
+        st.caption(
+            "Historical context: in the Wall Street Journal dartboard contest, "
+            "professional selections outperformed the darts in roughly 61% of contests. "
+            "This comparison treats that record as context rather than evidence of "
+            "persistent skill; Sharpe ratios and Fama–French alpha provide the "
+            "period-specific, risk-adjusted comparison here."
+        )
+
         st.markdown("---")
         st.subheader("📥 Export Results")
 
