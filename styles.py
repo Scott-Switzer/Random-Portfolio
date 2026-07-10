@@ -82,12 +82,19 @@ def get_css():
         background-color: {c['bg_primary']} !important;
     }}
     
-    .main .block-container {{
+    /* Streamlit 1.59 DOM: .stAppViewContainer > .stMain > .stMainBlockContainer.
+       Push footer to viewport bottom on short pages via flex + min-height.
+       High-specificity selector (+ !important) overrides Streamlit's own. */
+    .stAppViewContainer .stMain .stMainBlockContainer {{
         max-width: 1200px !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
         margin: 0 auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 100vh !important;
     }}
+    .site-footer {{ margin-top: auto !important; }}
     
     /* Fonts + centered TEXT (scoped to text nodes, NOT layout containers,
        so Streamlit's flex button/column wrappers keep their alignment) */
@@ -845,13 +852,13 @@ def render_footer():
     c = get_colors()
     theme = get_theme()
     
-    footer_html = f"""<div style="width: 100%; margin-top: 4rem;">
+    footer_html = f"""<div class="site-footer" style="width: 100%;">
 <div style="padding: 2.5rem 2rem; background-color: {c['bg_secondary']}; border-top: 1px solid {c['border']};">
 <div style="display: flex; flex-wrap: wrap; gap: 3rem; max-width: 1000px; margin: 0 auto; justify-content: space-between;">
 <!-- Brand Column -->
 <div style="flex: 2; min-width: 250px;">
 <div style="display: flex; align-items: flex-start; gap: 1rem;">
-<img src="https://brand.chapman.edu/wp-content/uploads/2023/04/window-icon-1.png" alt="Chapman University" style="width: 48px; height: 48px; {'filter: invert(1);' if theme == 'dark' else ''}">
+<div style="width: 48px; height: 48px; border-radius: 50%; background: {c['accent']}; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">🎯</div>
 <div>
 <div style="font-family: 'IBM Plex Serif', Georgia, serif; font-size: 1.125rem; font-weight: 600; color: {c['text_primary']};">The Dartboard Experiment</div>
 <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 0.875rem; color: {c['text_secondary']}; margin-top: 0.25rem;">Built by Scott T. Switzer</div>
